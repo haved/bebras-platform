@@ -394,7 +394,7 @@
     "admin_cannot_create_group": "Admins cannot create groups",
     "awards_content_intro": "TODO",
     "awards_content_detail": "TODO",
-    "main_logo": "<img src=\"images/nior1avatar.png\"/>",
+    "main_logo": "<img src=\"images/niologo.png\"/>",
     "nbContestants_1": "Individual",
     "nbContestants_2": "Pair",
     "maintenance_until": "Sorry, this site is unavailble until __end__ for maintenance.",

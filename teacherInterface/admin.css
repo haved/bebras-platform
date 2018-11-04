@@ -247,4 +247,5 @@ label .label {
 .dialog table tr td, .dialog table tr th{
   vertical-align: top;
   padding-bottom: 10px;
+  text-align: left;
 }

@@ -156,7 +156,7 @@ function getGroupsColModel() {
             stype: "select", searchoptions: { value:getItemNames(contests, true)},
             required: true, 
             width: 260, comment: t("contestID_comment")},
-         grade: {label: t("contestant_grade_label"), editable: true, edittype: "select", width: 100, required: true, editoptions:{
+         grade: {label: t("group_grade_label"), editable: true, edittype: "select", width: 100, required: true, editoptions:{
             value:{
                "3": t("grade_3"),
                "4": t("grade_4"),
@@ -1928,8 +1928,8 @@ function newForm(modelName, title, message, item) {
       html += '<label><input type="checkbox" id="users_okMail">';
       html += t('user_accept_email')+'</label>';
    }
-   html += "<input id='buttonValidate_" + modelName + "' type='button' value='OK' onclick='validateForm(\"" + modelName + "\")' class='btn btn-primary'/> ";
-   html += "<input id='buttonCancel_" + modelName + "' type='button' value='Annuler' onclick='endEditForm(\"" + modelName + "\", 0 , {})' class='btn btn-default'/>";
+   html += "<input id='buttonValidate_" + modelName + "' type='button' value='" + t('OK') +"' onclick='validateForm(\"" + modelName + "\")' class='btn btn-primary'/> ";
+   html += "<input id='buttonCancel_" + modelName + "' type='button' value='" + t('cancel') + "' onclick='endEditForm(\"" + modelName + "\", 0 , {})' class='btn btn-default'/>";
    html += "<div id='edit_form_error' style='color:red'></div>";
    $("#edit_form").html(html);
    eval(js);

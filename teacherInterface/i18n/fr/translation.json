@@ -113,7 +113,6 @@
     "grade_18": "4ème Segpa",
     "grade_19": "3ème Segpa",
     "grade_20": "Post-bac",
-    "group_grade_comment": "Si plusieurs classes vont utiliser ce code, choisissez le plus élevé",
     "participationType_long_label": "Type de participation",
     "participationType_label": "Type de <br/>participation",
     "participationType_comment": "Créez un groupe « hors classement » pour vous tester vous-mêmes ou vos collègues sans apparaître dans le classement officiel.<br/>",
@@ -136,6 +135,8 @@
     "group_minCategory_label": "Catégorie<br/>minimum<br/>(Algoréa)",
     "group_maxCategory_label": "Catégorie<br/>maximum<br/>(Algoréa)",
     "group_language_label": "Langage<br/>de programmation<br/>(Algoréa)",
+    "group_grade_label": "Classe"
+    "group_grade_comment": "Si plusieurs classes vont utiliser ce code, choisissez le plus élevé",
     "contest_question_contestID_label": "Concours",
     "contest_question_questionID_label": "Question",
     "contest_question_minScore_label": "Score min",
@@ -357,9 +358,10 @@
     "contest_bonusScore_label": "Score bonus",
     "contest_question_noAnswerScore_label": "Score rien",
     "expectedStartTime_long_label": "Heure de passage prévue",
-    "option_hidden_contest": "Caché",
+    "option_hidden_contest": "Caché"
     "colleagues": "<h2>Collègues</h2><p>Voici les autres coordinateurs qui partagent un établissement avec vous. Vous pouvez leur donner accès en lecture ou en écriture à tous vos groupes, en double-cliquant sur la ligne correspondante, et en modifiant la valeur dans la colonne « Accès donné ». Ils peuvent de leur côté vous donner accès à leurs groupes s'ils le souhaitent.</p>",
     "cancel": "Annuler",
+    "ok": "OK",
     "school_select": "Devenir coordinateur dans cet établissement",
     "colleagues_access_given": "Accès donné",
     "colleagues_access_none": "Aucun",

@@ -59,7 +59,7 @@ function createTeamFromUserCode($db, $password) {
    if (function_exists('customCreateTeamFromUserCode')) {
       return customCreateTeamFromUserCode($db, $password);
    } else {
-      return (object)array("success" => false, "message" => "Mot de passe invalide");
+      return (object)array("success" => false, "message" => "Incorrect password");
    }
 }
 
@@ -178,7 +178,7 @@ function reloginTeam($db, $password, $teamID) {
       exitWithJsonFailure("Groupe invalide");
    }
    if ($row->password !== $password) {
-      exitWithJsonFailure("Mot de passe invalide");
+      exitWithJsonFailure("Incorrect password");
    }
    if ($row->status == "Closed" || $row->status == "PreRanking") {
       exitWithJsonFailure("Concours fermé");

@@ -678,7 +678,7 @@ function handleRecoverGroup($db) {
    $stmt->execute(array($_POST['groupCode']));
    $row = $stmt->fetchObject();
    if (!$row || $row->password != $_POST['groupPass']) {
-      exitWithJson((object)array("success" => false, "message" => 'Mot de passe invalide'));
+      exitWithJson((object)array("success" => false, "message" => 'Incorrect password'));
    }
    if ($row->bRecovered == 1) {
       exitWithJson((object)array("success" => false, "message" => 'L\'opération n\'est possible qu\'une fois par groupe.'));

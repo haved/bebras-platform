@@ -248,7 +248,7 @@ function checkRequestUser($db, &$request, &$record, $operation, &$roles) {
       if ($record["password"] != "") {
          $oldPasswordMd5 = computePasswordMD5($record["old_password"], $user->salt);
          if ($oldPasswordMd5 !== $user->passwordMd5) { 
-            echo json_encode(array("success" => false, "message" => "mot de passe invalide"));
+            echo json_encode(array("success" => false, "message" => "Incorrect password"));
             error_log("Invalid password");
             return false;
          }

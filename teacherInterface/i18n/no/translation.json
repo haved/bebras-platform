@@ -108,6 +108,7 @@
     "grade_18": "",
     "grade_19": "",
     "grade_20": "",
+    "group_grade_comment": "If multiple grades will use this code, pick the highest",
     "participationType_long_label": "Participation date",
     "participationType_label": "Type of<br/>participation",
     "participationType_comment": "Create an 'unofficial' group to test yourself or your colleagues without ending up in the official contest ranking.<br/>",

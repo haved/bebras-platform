@@ -113,6 +113,7 @@
     "grade_18": "4ème Segpa",
     "grade_19": "3ème Segpa",
     "grade_20": "Post-bac",
+    "group_grade_comment": "Si plusieurs classes vont utiliser ce code, choisissez le plus élevé",
     "participationType_long_label": "Type de participation",
     "participationType_label": "Type de <br/>participation",
     "participationType_comment": "Créez un groupe « hors classement » pour vous tester vous-mêmes ou vos collègues sans apparaître dans le classement officiel.<br/>",

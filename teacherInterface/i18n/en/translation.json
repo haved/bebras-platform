@@ -108,6 +108,7 @@
     "grade_18": "8th grade Special",
     "grade_19": "9th grade Special",
     "grade_20": "post high-school",
+    "group_grade_comment": "If multiple grades will use this code, pick the highest",
     "participationType_long_label": "Participation date",
     "participationType_label": "Type of<br/>participation",
     "participationType_comment": "Create an 'unofficial' group to test yourself or your colleagues without ending up in the official contest ranking.<br/>",

@@ -156,7 +156,7 @@ function getGroupsColModel() {
             stype: "select", searchoptions: { value:getItemNames(contests, true)},
             required: true, 
             width: 260, comment: t("contestID_comment")},
-         grade: {label: "Classe", editable: true, edittype: "select", width: 100, required: true, editoptions:{
+         grade: {label: t("contestant_grade_label"), editable: true, edittype: "select", width: 100, required: true, editoptions:{
             value:{
                "3": t("grade_3"),
                "4": t("grade_4"),
@@ -176,7 +176,7 @@ function getGroupsColModel() {
                "12": t("grade_12"),
                "15": t("grade_15"),
                "20": t("grade_20")
-            }}},
+            }, width: 260, comment: t("group_grade_comment")}},
          participationType: {label: t("participationType_label"), longLabel: t("participationType_long_label"), editable: true, required: true, edittype: "select", width: 100, editoptions:{ value:{"Official": t("participationType_official"), "Unofficial": t("participationType_unofficial")}}, comment: t("participationType_comment")},
          expectedStartTime: {
             label: t("expectedStartTime_label") + "<br/>(" + jstz.determine().name() + ")",
@@ -1846,7 +1846,7 @@ function newForm(modelName, title, message, item) {
       if (field.edittype === undefined) {
          continue;
       }
-      html += "<tr><td style='width:230px;padding:10px 0;'><b>";
+      html += "<tr><th style='width:230px;'><b>";
       if (field.longLabel !== undefined) {
          html += field.longLabel;
       } else {

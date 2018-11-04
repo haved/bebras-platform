@@ -22,8 +22,8 @@ function getGroupTeams($db, $groupID) {
 }
 
 function getRandomID() {
-   $rand = (string) mt_rand(100000, 999999999);
-   $rand .= (string) mt_rand(1000000, 999999999);
+   $rand = (string) mt_rand(1000000, 9999999);
+   $rand .= (string) mt_rand(1000000, 9999999);
    return $rand;
 }
 

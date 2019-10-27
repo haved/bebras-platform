@@ -146,7 +146,7 @@
             <button type="button" id="buttonEditSelected_group" data-i18n="groups_edit_selected" onclick="editGroup()" class="btn btn-default"></button>
             <button type="button" id="buttonDeleteSelected_group" data-i18n="groups_delete_selected" class="btn btn-default"></button>
             <button type="button" id="buttonGradeSelected_group" data-i18n="groups_grade_selected" onclick="gradeGroup()" class="btn btn-default"></button>
-            <button type="button" id="buttonDisplaySelected_group" onclick="displayScoresGroup()" class="btn btn-default" value="test">Afficher les résultats détaillés</button>
+            <button type="button" id="buttonDisplaySelected_group" onclick="displayScoresGroup()" class="btn btn-default" value="test" data-i18n="groups_view_details"></button>
             <div id="gradeGroupState" style="display:none;"></div>
             <h2 data-i18n="groups_sheet_title"></h2>
             <p data-i18n="[html]groups_sheet_intro"></p>
@@ -173,7 +173,7 @@
             <button type="button" id="buttonDeleteSelected_team_view" data-i18n="teams_delete_selected" style="display:none" class="btn btn-default"></button>
              <h2 id="group_print_certificates_title" data-i18n="group_print_certificates_title"></h2>
             <p id="team_print_certificates_help" data-i18n="team_print_certificates_help"></p>
-            <button type="button" id="buttonPrintCertificates_team" onclick="preparePrintTeamCertificates()" data-i18n="team_print_certificates" class="btn btn-default"></button> <button type="button" id="buttonDoPrintCertificates_team" onclick="printTeamCertificates()" class="btn btn-default" style="display:hidden"></button> 
+            <button type="button" id="buttonPrintCertificates_team" onclick="preparePrintTeamCertificates()" data-i18n="team_print_certificates" class="btn btn-default"></button> <button type="button" id="buttonDoPrintCertificates_team" onclick="printTeamCertificates()" class="btn btn-default" style="display:none"></button> 
         </div>
 
          <div id="tabs-contestants">
@@ -301,6 +301,8 @@
       'customStringsName' => $config->customStringsName,
       'allowCertificates' => $config->certificates->allow,
       'useAlgoreaCodes' => $config->teacherInterface->useAlgoreaCodes,
+      'grades' => $config->grades,
+      'noGender' => (isset($config->teacherInterface->noGender) && $config->teacherInterface->noGender)
    ]) ?>;
    init();
 </script>

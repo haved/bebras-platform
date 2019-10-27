@@ -9,6 +9,16 @@ var commonJsVersion = 2;
 // Timestamp of common.js initial loading, sent on checkPassword too
 var commonJsTimestamp = Date();
 
+// Redirections from Scratch contests to Blockly versions when user is on a
+// mobile device
+var scratchToBlocklyContestID = {
+//  "161984592235565596": "30086786402846395", // 2019.1 white
+  "183586404034698343": "157869758503470753", // 2019.3 yellow
+  "586950465719201791": "480696737276770462", // 2019.3 orange
+  "244963514570819714": "265151671855451194" // 2019.3 green
+};
+
+
 var contestID;
 var contestFolder;
 var contestVisibility;
@@ -22,6 +32,7 @@ var customIntro;
 var solutionsLoaded;
 var teamID = 0;
 var teamPassword = "";
+var contestImagePreload = {};
 var questionsData = {};
 var questionsKeyToID = {};
 var questionsToGrade = [];
@@ -58,7 +69,8 @@ var groupCheckedData = null;
 var contestants = {};
 var teamMateHasRegistration = {1: false, 2: false};
 var personalPageData = null;
-
+// Function listening for resize events
+var bodyOnResize = null;
 
 function getParameterByName(name) {
    name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
@@ -111,7 +123,7 @@ window.unlockAllLevels = function() {
    var sortedQuestionIDs = getSortedQuestionIDs(questionsData);
    for (var iQuestionID = 0; iQuestionID < sortedQuestionIDs.length; iQuestionID++) {
       var questionKey = questionsData[sortedQuestionIDs[iQuestionID]].key;
-      questionUnlockedLevels[questionKey] = 3;
+      questionUnlockedLevels[questionKey] = 4;
       $("#place_" + questionKey).hide();
       $("#row_" + questionKey).show();
    }
@@ -266,6 +278,56 @@ function inArray(arr, value) {
     return -1;
 }
 
+
+/**
+ * Add or remove the meta viewport tag
+ *
+ * @param {bool} toggle
+ */
+function toggleMetaViewport(toggle) {
+   if(toggle) {
+      if($('meta[name=viewport]').length) { return; }
+      // Add
+      var metaViewport = document.createElement('meta');
+      metaViewport.name = "viewport";
+      metaViewport.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
+      document.getElementsByTagName('head')[0].appendChild(metaViewport);
+   } else {
+      // Remove
+      $('meta[name=viewport]').remove();
+   }
+}
+
+/**
+ * Fetch configuration
+ */
+function getConfig(callback) {
+  if(window.config) {
+     if(callback) { callback(); }
+     return;
+  }
+
+  $.post("data.php", {action: 'getConfig', p: getParameterByName('p')},
+     function(data) {
+        window.config = data.config;
+        if(callback) { callback(); }
+     }, "json");
+}
+
+/**
+ * Log activity on a question (question load, attempt)
+ */
+function logActivity(teamID, questionID, type, answer, score) {
+  if(typeof window.config == 'undefined') {
+     getConfig(function() {
+        logActivity(teamID, questionID, type, answer, score);
+        });
+     return;
+  }
+  if(!window.config.logActivity) { return; }
+  $.post("activity.php", {teamID: teamID, questionID: questionID, type: type, answer: answer, score: score});
+}
+
 /**
  * The platform object as defined in the Bebras API specifications
  *
@@ -276,10 +338,7 @@ var platform = {
       this.updateDisplay({height: height}, success, error);
    },
    updateDisplay: function(data, success, error) {
-      if(data.height) {
-        if (data.height < 700) {
-          data.height = 700;
-        }
+     if(data.height) {
         questionIframe.setHeight(data.height);
      }
      if (success) {success();}
@@ -338,9 +397,17 @@ var platform = {
          if (mode == "cancel") {
             answer = "";
          }
-         var questionData = questionsData[questionsKeyToID[questionKey]];
+         var questionID = questionsKeyToID[questionKey];
+
+         if(mode == "log") {
+            logActivity(teamID, questionID, "attempt", answer);
+            return;
+         }
+
+         var questionData = questionsData[questionID];
          if (fullFeedback) {
             questionIframe.task.gradeAnswer(answer, null, function(score, message) {
+               logActivity(teamID, questionID, "submission", answer, score);
                if (score < questionData.maxScore) {
                   mode = "stay";
                }
@@ -457,6 +524,7 @@ var questionIframe = {
    questionKey: null,
    task: null,
    gradersLoaded: false,
+   autoHeight: false,
 
    /**
     * Load a javascript file inside the iframe
@@ -575,6 +643,7 @@ var questionIframe = {
       iframe.setAttribute('id', 'question-iframe');
       iframe.setAttribute('scrolling', 'no');
       iframe.setAttribute('src', 'about:blank');
+      iframe.setAttribute('allowFullScreen', '');
 
       var content = '<!DOCTYPE html>' +
          '<html><head><meta http-equiv="X-UA-Compatible" content="IE=edge"></head>' +
@@ -587,10 +656,17 @@ var questionIframe = {
       if (typeof iframe.contentWindow.document.close === 'function')
          iframe.contentWindow.document.close();
 
+      // Chrome doesn't allow to set this attribute until iframe contents are
+      // loaded
+      iframe.setAttribute('allowFullScreen', true);
+
       this.iframe = $('#question-iframe')[0];
       this.doc = $('#question-iframe')[0].contentWindow.document;
       this.body = $('body', this.doc);
       this.tbody = this.doc.getElementsByTagName('body')[0];
+      this.autoHeight = false;
+      $('body').removeClass('autoHeight');
+      toggleMetaViewport(false);
 
       this.setHeight(0);
       this.body.css('width', '782px');
@@ -713,16 +789,6 @@ var questionIframe = {
       // No more global css file
       //this.addCssFile(contestsRoot + '/' + contestFolder + '/contest_' + contestID + '.css');
 
-      // Get configuration
-      var that = this;
-      $.post("data.php", {action: 'getConfig', p: getParameterByName('p')},
-         function(data) {
-            window.config = data.config;
-            that.inject('window.config = window.parent.config;');
-            // Call image preloading
-            that.addJsFile(window.contestsRoot + '/' + contestFolder + '/contest_' + contestID + '.js', callback);
-         }, "json");
-
       var border = "border: 1px solid #000000;";
       if (newInterface) {
          border = "";
@@ -730,39 +796,65 @@ var questionIframe = {
       this.body.append('<div id="jsContent"></div><div id="container" style="' + border + 'padding: 5px;"><div class="question" style="font-size: 20px; font-weight: bold;">' + t("content_is_loading") + '</div></div>');
 
       this.initialized = true;
+
+      // Get configuration and image preloader
+      var that = this;
+      getConfig(function() {
+         that.inject('window.config = window.parent.config;');
+         // Call image preloading
+         if(contestImagePreload[contestID]) {
+            that.inject(contestImagePreload[contestID]);
+            callback();
+         } else {
+            // Load image preload lists
+            $.get(window.contestsRoot + '/' + contestFolder + "/contest_" + contestID + ".js?origin=" + window.location.protocol + window.location.hostname, function(content) {
+               contestImagePreload[contestID] = content;
+               that.inject(content);
+               callback();
+            }, 'text').fail(function() {
+               // Continue anyway
+               callback();
+            });
+         }
+         });
+
    },
 
    /**
     * Run the task, should be called only by the loadQuestion function
     */
    run: function(taskViews, callback) {
+      // Reset autoHeight-related styles
+      $('body').removeClass('autoHeight');
+      $('#container', questionIframe.doc).css('padding', '5px');
+
       TaskProxyManager.getTaskProxy('question-iframe', withTask, true);
       function withTask (task) {
         questionIframe.task = task;
         TaskProxyManager.setPlatform(task, platform);
+        task.getMetaData(function(metaData) {
+           questionIframe.autoHeight = !!metaData.autoHeight;
+           if(questionIframe.autoHeight) {
+              $('body').addClass('autoHeight');
+              $('#container', questionIframe.doc).css('padding', '');
+              toggleMetaViewport(true);
+              questionIframe.updateHeight();
+           }
+        });
         task.load(taskViews, function() {
+           $('.questionIframeLoading').hide();
            task.showViews(taskViews, function() {
               if (typeof defaultAnswers[questionIframe.questionKey] == 'undefined') {
                  task.getAnswer(function(strAnswer) {
                     defaultAnswers[questionIframe.questionKey] = strAnswer;
                  }, logError);
               }
-              task.getHeight(function(height) {
-                 platform.updateDisplay({height: height});
-              }, logError);
+              questionIframe.updateHeight();
            }, logError);
         }, logError);
         // Iframe height "hack" TODO: why two timers?
-        setTimeout(function() {
-           task.getHeight(function(height) {
-              platform.updateDisplay({height: height});
-           }, logError);
-        }, 500);
-        setTimeout(function() {
-           task.getHeight(function(height) {
-              platform.updateDisplay({height: height});
-           }, logError);
-        }, 1000);
+        setTimeout(questionIframe.updateHeight, 500);
+        setTimeout(questionIframe.updateHeight, 1000);
 
         // TODO : test without timeout : should not be needed.
         setTimeout(function() {
@@ -799,11 +891,48 @@ var questionIframe = {
    },
 
    /**
+    * Update the iframe height depending on the task parameters
+    */
+   updateHeight: function(callback) {
+      if(!questionIframe.loaded || !questionIframe.task) {
+         if(callback) { callback(); }
+         return;
+      }
+      var fullHeight = $('#question-iframe').height() - $('html').height() + document.documentElement.clientHeight;
+      if(questionIframe.autoHeight) {
+         // Because the layout can vary, we simply take the height of the html
+         // and compare to the desired height, hence finding how much the
+         // iframe's height needs to change
+         platform.updateDisplay({height: fullHeight});
+         if(callback) { callback(); }
+      } else {
+         questionIframe.task.getHeight(function(height) {
+            height = Math.max(fullHeight, height + 25);
+            platform.updateDisplay({height: height});
+            if(callback) { callback(); }
+         }, logError);
+      }
+   },
+
+   /**
+    * body resize event handler
+    */
+   onBodyResize: function() {
+      // We only need to update if the iframe is on auto-height
+      if(questionIframe.autoHeight) {
+         questionIframe.updateHeight();
+      }
+   },
+
+   /**
     * Load the question, should be call only by the load function
     *
     * @param string questionKey
     */
    loadQuestion: function(taskViews, questionKey, callback) {
+      var questionID = questionsKeyToID[questionKey];
+      logActivity(teamID, questionID, "load");
+
       this.body.find('#container > .question').remove();
       // We cannot just clone the element, because it'll result in an strange id conflict, even if we put the result in an iframe
       var questionContent = $('#question-' + questionKey).html();
@@ -881,21 +1010,25 @@ var questionIframe = {
     * @param {string} questionKey
     */
    load: function(taskViews, questionKey, callback) {
+      var that = this;
+      var cb = function() {
+         showQuestionIframe();
+         that.loadQuestion(taskViews, questionKey, callback);
+      };
       if (this.loaded) {
-         var that = this;
          if (questionIframe.task && questionIframe.task.iframe_loaded) {
             questionIframe.task.unload(function() {
                that.loaded = false;
-               that.loadQuestion(taskViews, questionKey, callback);
+               questionIframe.initialize(cb);
             }, function() {
                logError(arguments);
                that.loaded = false;
-               that.loadQuestion(taskViews, questionKey, callback);
+               questionIframe.initialize(cb);
             });   
          }
          else {
             this.loaded = false;
-            this.loadQuestion(taskViews, questionKey, callback);
+            questionIframe.initialize(cb);
          }
       }
       else {
@@ -904,8 +1037,10 @@ var questionIframe = {
    },
 
    setHeight: function(height) {
-       height = Math.max($(window).height() - 79, height + 25);
-       $('#question-iframe').css('height', height + 'px');
+      if(height < 700 && !questionIframe.autoHeight) {
+         height = 700;
+      }
+      $('#question-iframe').css('height', height + 'px');
    }
 };
 
@@ -1028,6 +1163,15 @@ var TimeManager = {
             if (data.success) {
                var remainingSeconds = self.getRemainingSeconds();
                TimeManager.timeStart = TimeManager.timeStart + parseInt(data.remainingSeconds) - remainingSeconds;
+               /*
+               var curDate = new Date();
+               var curTime = curDate.getTime() / 1000;
+               console.log("remainingSeconds before sync : " + remainingSeconds + " timeStart : " + TimeManager.timeStart);
+               TimeManager.timeStart = curTime - (TimeManager.initialRemainingSeconds - parseInt(data.remainingSeconds));
+               remainingSeconds = self.getRemainingSeconds();
+               console.log("remainingSeconds after sync : " + remainingSeconds + " timeStart : " + TimeManager.timeStart);
+               this.prevTime = curTime;
+               */
             } else {
                TimeManager.simpleTimeAdjustment();
             }
@@ -1090,9 +1234,11 @@ var TimeManager = {
 window.selectMainTab = function(tabName) {
    if (tabName == 'home') {
       $("#publicContestExplanation").html(t("tab_public_contests_score_explanation"));
-      loadPublicGroups();
-   }
-   var tabNames = ["school", "home", "continue", "results", "contests"];
+      //loadPublicGroups(); We don't use this feature anymore, we create this page manually.
+      $("#loadPublicGroups").hide();
+      $("#contentPublicGroups").show();
+  }
+   var tabNames = ["school", "home", "continue", "contests"];
    for(var iTab = 0; iTab < tabNames.length; iTab++) {
       if (tabNames[iTab] === tabName) {
          $("#tab-" + tabNames[iTab]).show();
@@ -1198,6 +1344,8 @@ function getQuestionScoreRate(questionData) {
 }
 
 function getNbLockedStars(questionData) {
+   // TODO (here and everywhere in the code) : support variable number of
+   // levels and hence of unlockedLevels
    if (questionUnlockedLevels[questionData.key] != 0) {
       return 3 - questionUnlockedLevels[questionData.key];
    }
@@ -1216,7 +1364,7 @@ function updateUnlockedLevels(sortedQuestionIDs, updatedQuestionKey, contestEnde
       questionKey = questionsData[sortedQuestionIDs[iQuestionID]].key;
       prevQuestionUnlockedLevels[questionKey] = questionUnlockedLevels[questionKey];
       //if (contestEnded) {
-         questionUnlockedLevels[questionKey] = 3;
+         questionUnlockedLevels[questionKey] = 4;
          nbTasksUnlocked[2]++;
          continue;
       //}
@@ -1266,6 +1414,7 @@ function updateUnlockedLevels(sortedQuestionIDs, updatedQuestionKey, contestEnde
          drawStars('score_' + questionData.key, 4, 20, scoreRate, "normal", nbLocked);  // stars under icon on main page
          if (questionKey == updatedQuestionKey) {
             drawStars('questionStars', 4, 24, scoreRate, "normal", nbLocked); // stars in question title
+            drawStars('questionIframeStars', 4, 24, scoreRate, "normal", nbLocked); // stars in question title
          }
       }
    }
@@ -1378,6 +1527,7 @@ function setupContest(data) {
 */
 function loadContestData(contestID, contestFolder, groupPassword)
 {
+   $('#browserAlert').hide();
    $("#divImagesLoading").show();
    questionIframe.initialize(function() {
       if (fullFeedback) {
@@ -1407,8 +1557,12 @@ function loadContestData(contestID, contestFolder, groupPassword)
          $.post("data.php", {SID: SID, action: "loadContestData", groupPassword: groupPassword, teamID: teamID},
          function(data) {
             if (!data.success) {
+               $("#divHeader").show();
                $("#divCheckGroup").show();
                $("#ReloginResult").html(t("invalid_password"));
+               $("#divQuestions").hide();
+               $('.fullFeedback').hide();
+               $('#mainNav').show();
                Utils.enableButton("buttonRelogin");
                return;
             }
@@ -1458,6 +1612,13 @@ window.setNbImagesLoaded = function(content) {
 // Team connexion
 
 /*
+ * Called when confirming a participation from an unsupported browser
+ */
+window.confirmUnsupportedBrowser = function() {
+   $("#submitParticipationCode").removeClass('needBrowserConfirm');
+};
+
+/*
  * Called when starting a contest by providing a group code on the main page.
 */
 window.checkGroup = function() {
@@ -1502,6 +1663,7 @@ window.checkPasswordInterrupted = function() {
  * Used to continue a contest if the students didn't write down the team password
 */
 function fillListTeams(teams) {
+   $("#selectTeam").html("<option value='0'>" + t("tab_view_select_team"));
    for (var curTeamID in teams) {
       var team = teams[curTeamID];
       var teamName = "";
@@ -1565,7 +1727,7 @@ var hideLoginFields = function(postData) {
    }
 };
 
-window.hasRegistration = function(teamMate, hasReg) {
+window.hasRegistration = function(teamMate, hasReg, lock) {
    $("#LoginResult").html("");
    teamMateHasRegistration[teamMate] = hasReg;
    $("#hasReg" + teamMate + "Yes").removeClass("selected");
@@ -1575,6 +1737,11 @@ window.hasRegistration = function(teamMate, hasReg) {
    if(hasReg) {
       $("#hasReg" + teamMate + "Yes").addClass("selected");
       $("#yesRegistrationCode" + teamMate).show();
+      if (lock) {
+         $("#hasReg" + teamMate + "No").attr("disabled", "disabled");
+         $("#registrationCode" + teamMate).attr("readonly", "readonly");
+         $("#validateRegCode" + teamMate).hide();
+      }
    } else {
       $("#hasReg" + teamMate + "No").addClass("selected");
       $("#noRegistrationCode" + teamMate).show();
@@ -1650,12 +1817,13 @@ window.groupWasChecked = function(data, curStep, groupCode, getTeams, isPublic, 
          if ((data.registrationData != undefined) && (data.registrationData.code != undefined)) {
             contestants[1] = { registrationCode :  data.registrationData.code };
             $("#registrationCode1").val(data.registrationData.code);
-            hasRegistration(1, true);
+            hasRegistration(1, true, true);
             $("#errorRegistrationCode1").html("Bienvenue " + data.registrationData.firstName + " " + data.registrationData.lastName);
          }
          $('#mainNav').hide();
       } else {
          fillListTeams(data.teams);
+         $('#mainNav').show();
          $("#divRelogin").show();
       }
    }
@@ -1689,6 +1857,11 @@ window.showPersonalPage = function(data) {
    $nameGrade = t("grade_" + data.registrationData.grade).toLowerCase();
    $("#persoGrade").html($nameGrade);
    $("#persoCategory").html(data.registrationData.qualifiedCategory);
+   if (data.registrationData.round == 1) {
+      $("#persoSemifinal").html("oui" + t("semifinal_comment"));
+   } else {
+      $("#persoSemifinal").html("non");
+   }
    if (data.registrationData.allowContestAtHome == "0") {
       $("#buttonStartContest").attr("disabled", "disabled");
       $("#contestAtHomePrevented").show();
@@ -1769,6 +1942,7 @@ window.startPreparation = function() {
 window.checkGroupFromCode = function(curStep, groupCode, getTeams, isPublic, language, startOfficial) {
    Utils.disableButton("button" + curStep);
    $('#recoverGroup').hide();
+   $('#browserAlert').hide();
    $("#" + curStep + "Result").html('');
    $.post("data.php", {SID: SID, action: "checkPassword", password: groupCode, getTeams: getTeams, language: language, startOfficial: startOfficial, commonJsVersion: commonJsVersion, timestamp: window.timestamp, commonJsTimestamp: commonJsTimestamp},
       function(data) {
@@ -1937,6 +2111,12 @@ window.getContest = function(ID) {
 window.selectContest = function(ID) {
    $("#selectContest").delay(250).slideUp(400).queue(function() {
       $(this).dequeue();
+      if (window.browserIsMobile && typeof scratchToBlocklyContestID[ID] != 'undefined') {
+         alert(t("browser_redirect_scratch_to_blockly"));
+         ID = scratchToBlocklyContestID[ID];
+         selectedLanguage = 'blockly';
+         setContestBreadcrumb();
+      }
       var contest = window.getContest(ID);
       contestID = ID;
       contestFolder = contest.folder;
@@ -1956,7 +2136,7 @@ window.offerCategories = function(data) {
          categories[child.categoryColor] = true;
       }
    }
-   var allCategories = ["blanche", "jaune", "orange", "verte", "bleue", "cm1cm2", "6e5e", "4e3e", "2depro", "2de", "1reTalepro", "1reTale", "all"]; // TODO: do not hardcode
+   var allCategories = ["blanche", "jaune", "orange", "verte", "bleue", "cm1cm2", "6e5e", "4e3e", "2depro", "2de", "1reTalepro", "1reTale", "demifinale", "all"]; // TODO: do not hardcode
    var minReached = (groupMinCategory == "");
    var maxReached = false;
    var nbCategories = 0;
@@ -2119,6 +2299,13 @@ window.validateLoginForm = function() {
  * Creates a new team using contestants information
 */
 function createTeam(contestants) {
+   if (window.browserIsMobile && typeof scratchToBlocklyContestID[contestID] != 'undefined') {
+      alert(t("browser_redirect_scratch_to_blockly"));
+      contestID = scratchToBlocklyContestID[contestID];
+      var contest = window.getContest(contestID);
+      contestFolder = contest.folder;
+      customIntro = contest.customIntro;
+   }
    $.post("data.php", {SID: SID, action: "createTeam", contestants: contestants, contestID: contestID},
       function(data) {
          teamID = data.teamID;
@@ -2243,9 +2430,10 @@ function initContestData(data, newContestID) {
       $("#question-iframe-container").addClass("newInterfaceIframeContainer").show();
       $(".oldInterface").html("").hide();
       $(".newInterface").show();
-      window.backToList();
+      window.backToList(true);
    } else {
       $("#question-iframe-container").addClass("oldInterfaceIframeContainer").show();
+      $("#question-iframe-container").css("position", "absolute");
       $(".newInterface").html("").hide();
       $(".oldInterface").show();
    }
@@ -2358,6 +2546,8 @@ function closeContest(message) {
    hasDisplayedContestStats = true;
    Utils.disableButton("buttonClose");
    Utils.disableButton("buttonCloseNew");
+   $('body').removeClass('autoHeight');
+   toggleMetaViewport(false);
    $("#divQuestions").hide();
    hideQuestionIframe();
    if (questionIframe.task) {
@@ -2425,6 +2615,10 @@ function finalCloseContest(message) {
          }
          $("#remindTeamPassword").html(teamPassword);
          $("#divClosedRemindPassword").show();
+         if (fullFeedback) {
+            $("#remindScore").html(ffTeamScore);
+            $("#scoreReminder").show();
+         }
       } else {
          $("#divQuestions").hide();
          hideQuestionIframe();
@@ -2626,7 +2820,9 @@ function fillNextQuestionID(sortedQuestionsIDs) {
    questionsData[prevQuestionID].nextQuestionID = "0";
 }
 
-window.backToList = function() {
+window.backToList = function(initial) {
+   $('body').removeClass('autoHeight');
+   toggleMetaViewport(false);
    $(".questionListIntro").show();
    $(".questionList").show();
    $(".buttonClose").show();
@@ -2664,6 +2860,7 @@ window.selectQuestion = function(questionID, clicked, noLoad) {
       $(".questionList").hide();
       $(".buttonClose").hide();
       $("#question-iframe-container").show();
+      $(".questionIframeLoading").show();
       $(".button_return_list").prop("disabled", false);
    }
 
@@ -2686,6 +2883,7 @@ window.selectQuestion = function(questionID, clicked, noLoad) {
       $(".questionTitle").html(questionName);
       if (newInterface) {
          drawStars('questionStars', 4, 24, getQuestionScoreRate(questionData), "normal", getNbLockedStars(questionData)); // stars under icon on main page
+         drawStars('questionIframeStars', 4, 24, getQuestionScoreRate(questionData), "normal", getNbLockedStars(questionData)); // stars under icon on main page
       }
       currentQuestionKey = questionKey;
 
@@ -2926,8 +3124,7 @@ function loadSolutions(data) {
          if (!currentQuestionKey) {
             return;
          }
-         questionIframe.task.getHeight(function(height) {
-            platform.updateDisplay({height: height});
+         questionIframe.updateHeight(function() {
             if (questionIframe.loaded) {
                questionIframe.task.unload(function() {
                   questionIframe.loadQuestion({'task': true, 'solution': true, 'grader': true}, currentQuestionKey, function(){});
@@ -3024,6 +3221,68 @@ function showQuestionIframe()
    $('#question-iframe').css('width', '782px');
    $('#question-iframe').css('height', 'auto');
 }
+
+var fullscreenActive = false;
+var fullscreenEvents = false;
+window.toggleFullscreen = function() {
+   if(!fullscreenEvents) {
+      // Register events to update fullscreen state
+      document.addEventListener("fullscreenchange", updateFullscreen);
+      document.addEventListener("webkitfullscreenchange", updateFullscreen);
+      document.addEventListener("mozfullscreenchange", updateFullscreen);
+      document.addEventListener("MSFullscreenChange", updateFullscreen);
+      fullscreenEvents = true;
+   }
+
+   if(fullscreenActive) {
+      // Exit fullscreen
+      var el = document;
+      if(el.exitFullscreen) {
+         el.exitFullscreen();
+      } else if(el.mozCancelFullScreen) {
+         el.mozCancelFullScreen();
+      } else if(el.webkitExitFullscreen) {
+         el.webkitExitFullscreen();
+      } else if(el.msExitFullscreen) {
+         el.msExitFullscreen();
+      }
+      fullscreenActive = false;
+   } else {
+      var el = document.documentElement;
+      if(el.requestFullscreen) {
+         el.requestFullscreen();
+      } else if(el.mozRequestFullScreen) {
+         el.mozRequestFullScreen();
+      } else if(el.webkitRequestFullscreen) {
+         el.webkitRequestFullscreen();
+      } else if(el.msRequestFullscreen) {
+         el.msRequestFullscreen();
+      }
+      fullscreenActive = true;
+   }
+}
+
+function updateFullscreen() {
+   // Update fullscreen state when receiving event
+   if(document.fullscreenElement || document.msFullscreenElement || document.mozFullScreen || document.webkitIsFullScreen) {
+      fullscreenActive = true;
+   } else {
+      fullscreenActive = false;
+   }
+}
+
+function checkFullscreen() {
+   // Checks whether fullscreen is available, else hides the button
+   var el = document.documentElement;
+   var available = false;
+   try {
+      available = el.requestFullscreen || el.mozRequestFullScreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+   } catch(e) {}
+   if(!available) {
+      $('.header_button_fullscreen').hide();
+   }
+}
+
 
 //
 // Loader
@@ -3224,6 +3483,8 @@ $(document).on('ready', function() {
    } else {
       init();
    }
+   window.addEventListener('resize', questionIframe.onBodyResize);
+   checkFullscreen();
 });
 
 }();

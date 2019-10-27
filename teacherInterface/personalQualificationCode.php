@@ -5,7 +5,7 @@ require_once("commonAdmin.php");
 require_once("../commonFramework/modelsManager/modelsTools.inc.php");
 
 if (!isset($_SESSION['userID'])) {
-   die(json_encode(array('success' => false, 'error' => "Votre session a expiré, veuillez vous reconnecter.")));
+   die(json_encode(array('success' => false, 'error' => translate("session_expired"))));
    exit();
 }
 
@@ -68,7 +68,7 @@ function createPersonalCode($contestID) {
 	$registrationID = getRandomID();
    // TODO: make category depend on contest ?
 	$stmt = $db->prepare("INSERT INTO `algorea_registration` (`ID`, `firstName`, `lastName`, `genre`, `userID`, `code`, `category`) VALUES ".
-       "(:ID, :firstName, :lastName, :genre, :userID, :code, 'round2');");
+       "(:ID, :firstName, :lastName, :genre, :userID, :code, 'tour 2');");
 	$stmt->execute([
 		'ID' => $registrationID,
 		'firstName' => $user['firstName'],

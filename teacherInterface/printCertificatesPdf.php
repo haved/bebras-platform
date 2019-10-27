@@ -1,5 +1,8 @@
 <?php
   include('./config.php');
+  require_once("../shared/common.php");
+  require_once("commonAdmin.php");
+
   header('Content-type: text/html');
 ?><!DOCTYPE html>
 <html><head>
@@ -14,7 +17,7 @@ function imageToBase64($path) {
 }
 
 script_tag('/bower_components/pdfmake/build/pdfmake.js');
-script_tag('/bower_components/pdfmake/build/vfs_fonts.js');
+script_tag('/certificates_vfs_fonts.js');
 script_tag('/bower_components/jquery/jquery.min.js');
 script_tag('/bower_components/jquery-ui/jquery-ui.min.js'); // for $.datepicker.formatDate
 script_tag('/bower_components/i18next/i18next.min.js');
@@ -47,26 +50,52 @@ var allImages = {
 
 $partnerImagesInfos = array();
 $maxLogoHeight = 0;
-$finalWidth = 70;
-$logoStartX = 165 - (count($config->certificates->partnerLogos) * 80 - 10) / 2;
-foreach ($config->certificates->partnerLogos as $fileName) {
+$totalWidth = 0;
+foreach ($config->certificates->partnerLogos as $numLogo => $fileName) {
    $imageInfo = getimagesize($fileName);
    $width = intVal($imageInfo[0]);
+   $finalWidth = 70;
+   if ($config->certificates->partnerLogosWidths != null) {
+      $finalWidth = intVal($config->certificates->partnerLogosWidths[$numLogo]);
+   }
    $height = intVal($imageInfo[1]) * $finalWidth / $width;
    if ($height > $maxLogoHeight) {
       $maxLogoHeight = $height;
    }
-   $partnerImagesInfos[] = array($fileName, $height);
+   $partnerImagesInfos[] = array($fileName, $height, $finalWidth);
+   $totalWidth += $finalWidth;
 }
-$strJS = "var partnerLogos = [\n";
+$nbLogos = count($config->certificates->partnerLogos);
+$logoStartX = 165 - ($totalWidth + (10 * ($nbLogos - 1))) / 2;
+$xPos = $logoStartX;
+$partnersStartY = 510;
+if (isset($config->certificates->partnerLogosY)) {
+   $partnersStartY = intVal($config->certificates->partnerLogosY);
+}
+$strJS = "var partnersStartY = ".$partnersStartY.";\nvar partnerLogos = [\n";
 foreach ($partnerImagesInfos as $iLogo => $logoInfo) {
+   $width = $logoInfo[2];
+
+   $height = $logoInfo[1];
    $strJS .= "{ stack:[{image: '" . imageToBase64($logoInfo[0]) .
-              "', width:70}], absolutePosition: {x:" . ($logoStartX + ($iLogo * 80)) . ", y:" .
-              (510 + ($maxLogoHeight - $logoInfo[1]) / 2) . " } },\n";
+              "', width:".$width."}], absolutePosition: {x:" . $xPos . ", y:" .
+              ($partnersStartY  + ($maxLogoHeight - $height) / 2) . " } },\n"; 
+   $xPos += $width + 10;
 }
 $strJS .= "];";
 
 echo $strJS;
+
+if (isset($config->certificates->footer)) {
+   echo "var footer = '".$config->certificates->footer."';\n";
+} else {
+   echo "var footer = '';\n";
+}
+if (isset($config->certificates->defaultFont)) {
+   echo "var defaultFont = '".$config->certificates->defaultFont."';\n";
+} else {
+   echo "var defaultFont = 'Roboto';\n";
+}
 
 ?>
 var contestName = '<?=$config->certificates->title?>';
@@ -98,28 +127,38 @@ font-family: 'Varela Round', sans-serif;
 </head>
 <body>
 <div style="text-align: center">
-   <p class="bigmessage">Génération des diplômes</p>
+   <p class="bigmessage"><?php echo translate("certificates_generation"); ?></p>
 
    <div id="preload">
-      <p>Téléchargement des données en cours.</p>
-      <p>Veuillez patienter quelques instants.</p>
+      <p><?php echo translate("download_in_progress"); ?></p>
+      <p><?php echo translate("please_wait"); ?></p>
    </div>
 
    <div id="loaded" style="display:none;text-align:center">
       <div style="width:600px;background:#EEE;border:solid black 1px;margin:auto">
-         <p>La création d'un pdf peut prendre plusieurs secondes.</p>
-         <p><b>Attention :</b> il est possible que le navigateur affiche une popup vous disant<br/>que la page ne répond plus et vous demandant si vous voulez continuer.<br/>Répondez oui car la préparation des diplômes peut prendre du temps.</p>
-         <p>Assurez-vous d'utiliser un navigateur récent.</p>
+         <p><?php echo translate("certificates_generation_may_take_time"); ?></p>
+         <p><?php echo translate("warning_possible_popup"); ?></p>
+         <p><?php echo translate("use_recent_browser"); ?></p>
       </div>
       <br/>
       <div style="border:solid black 1px;margin:auto;padding:5px;text-align:left;width:600px;">
-         <p><b>Option</b> : n'imprimer les diplômes que pour :</p>
+         <p><?php echo translate("certificates_option_filter"); ?></p>
          <!--<p><input type="checkbox" id="qualifiedOnly" onchange="updateNbDiplomas()"></input>Les élèves ayant obtenu <span id="qualificationText"></span></p>-->
-         <p><input type="checkbox" id="topRankedOnly" onchange="updateNbDiplomas()"></input>Les élèves étant dans les <input type="number" id="minRankPercentile" style="width:40px;text-align:center" value="50" onchange="updateNbDiplomas()"/></input>% mieux classés de leur catégorie</p>
-         <p>Diplômes à imprimer : <span id="printedCertificates"></span> sur <span id="totalCertificates"></span>
+         <p><input type="checkbox" id="topRankedOnly" onchange="updateNbDiplomas()"></input>
+         <?php
+            echo sprintf(translate("certificates_filter_students_percentile"), "<input type='number' id='minRankPercentile' style='width:40px;text-align:center' value='50' onchange='updateNbDiplomas()'/></input>");
+         ?> </p>
+         <p><?php echo sprintf(translate("certificate_number_to_print"), "<span id='printedCertificates'></span>", "<span id='totalCertificates'></span>");  ?></p>
+         <p><?php echo "<b>".translate("certificates_option_display")."</b>"; ?></p>
+         
+         <?php
+            echo "<p>".sprintf(translate("certificates_min_score_displayed"), "<input type='number' id='minScoreDisplayed' style='width:40px;text-align:center' value='0'/></input>")."</p>";
+            echo "<p>".sprintf(translate("certificates_max_rank_percentile_displayed"), "<input type='number' id='maxRankPercentileDisplayed' style='width:40px;text-align:center' value='50'/></input>")."</p>";
+            echo "<p>".sprintf(translate("certificates_max_school_rank_percentile_displayed"), "<input type='number' id='maxSchoolRankPercentileDisplayed' style='width:40px;text-align:center' value='50'/></input>")."</p>";
+         ?>
       </div>
       <br/>
-      <p>Créer un pdf pour chaque paquet de <input type="number" id="diplomasPerPart" value="100" style="width:40px" onchange="updateNbDiplomas()"></input> diplômes.<br/>(Un petit nombre réduit les chances que votre navigateur crashe)</p>
+      <p><?php echo sprintf(translate("certificates_number_per_pdf"), "<input type='number' id='diplomasPerPart' value='100' style='width:40px' onchange='updateNbDiplomas()'></input>"); ?> </p>
       <div id="buttons">
       </div>
    </div>

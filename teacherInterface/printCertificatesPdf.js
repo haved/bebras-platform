@@ -6,8 +6,11 @@
 */
 
 function toOrdinal(i) {
-   // TODO: adapt to English, using numeral.js?
-   return i == 1 ? '1ère' : i+'e';
+   if (i == 1) {
+      return i + i18n.t('certificates_rank_1_suffix');
+   } else {
+      return i + i18n.t('certificates_rank_n_suffix');
+   }
 }
 
 function dateFormat(d) {
@@ -123,7 +126,7 @@ function fillDataDiplomas(params) {
         firstName: contestant.firstName,
         genre: contestant.genre,
         grade: contestant.grade,
-        algoreaCode: contestant.algoreaCode,
+        algoreaCode: contestant.qualificationCode,
         nbContestants: contestant.nbContestants,
         score: parseInt(contestant.score),
         rank: contestant.rank,
@@ -167,7 +170,7 @@ function isDiplomaToPrint(diploma) {
    if (qualifiedOnly && !diploma.qualified) {
       return false;
    }
-   if (diploma.rank / diploma.contestParticipants > rankPercentile) {
+   if (parseInt(diploma.rank) / parseInt(diploma.contestParticipants) > rankPercentile) {
       return false;
    }
    return true;
@@ -242,6 +245,9 @@ function getFullPdfDocument(content) {
       pageOrientation: 'landscape',
       pageSize: 'A4',
       content: content,
+      defaultStyle: {
+         font: defaultFont
+      },
       styles: {
          mainColor: { color: mainColor },
          accentColor: { color: accentColor },
@@ -281,8 +287,8 @@ function getCoordName(user) {
 
 function addHeaderForGroup(content, group, contest, user, school, isFirst) {
    // The string diploma_group_title is split in 2 strings : diploma_group_title and diploma_coordinator_title
-   var diploma_group_title = 'Groupe'; // i18n.t('diploma_group_title');
-   var diploma_coordinator_title = 'Coordonné par';
+   var diploma_group_title = i18n.t('certificates_group');
+   var diploma_coordinator_title = i18n.t('certificates_coordinator');
 
    var contentTitle = {
      stack: [
@@ -322,8 +328,8 @@ function addHeaderForGroup(content, group, contest, user, school, isFirst) {
 
 function addContestantTableForGroup(content, contestantsData) {
    var columnTitle = [
-      i18n.t('contestant_lastName_label'),
       i18n.t('contestant_firstName_label'),
+      i18n.t('contestant_lastName_label'),
       i18n.t('contestant_genre_label'),
       i18n.t('contestant_grade_label'),
       i18n.t('contestant_qualificationCode_label'),
@@ -352,8 +358,8 @@ function addContestantTableForGroup(content, contestantsData) {
          qualificationStr = i18n.t('option_no');
       }
       students.push([
-         diploma.lastName,
          diploma.firstName,
+         diploma.lastName,
          diploma.genre,
          i18n.t('grade_' + diploma.grade),
          qualificationStr,
@@ -376,25 +382,31 @@ function addContestantTableForGroup(content, contestantsData) {
 }
 
 function getDisplayedScoreAndRank(diploma) {
+   var minScoreDisplayed = parseInt($("#minScoreDisplayed").val());
+   var maxRankPercentileDisplayed = parseInt($("#maxRankPercentileDisplayed").val()) / 100;
+   var maxSchoolRankPercentileDisplayed = parseInt($("#maxSchoolRankPercentileDisplayed").val()) / 100;
    var scoreAndRank = [
-      "a obtenu " + diploma.score + " points"// sur " + diploma.contest.maxScore
    ];
+   if (diploma.score >= minScoreDisplayed) {
+      scoreAndRank.push(i18n.t("certificates_points_obtained", { points: diploma.score }));
+   }
+
    if ((diploma.category != undefined) && (diploma.category != "blanche")) {
 /*      if (diploma.round == "1") {
          scoreAndRank.push("la qualification en catégorie " + diploma.category + " et en demi-finale");
       } else {
 */         
-         scoreAndRank.push("la qualification en catégorie " + diploma.category);
+         scoreAndRank.push(i18n.t("certificates_qualification_to_category", {category: diploma.category}));
 /*      }*/
    }
-   if (diploma.rank <= diploma.contestParticipants / 2) {
-      scoreAndRank.push("la " + toOrdinal(diploma.rank) + " place sur " + diploma.contestParticipants + " lors des trois premiers tours");
+   if (diploma.rank <= diploma.contestParticipants * maxRankPercentileDisplayed) {
+      scoreAndRank.push(i18n.t("certificates_global_rank", {rank: toOrdinal(diploma.rank), total: diploma.contestParticipants}));
    }
-   if (diploma.schoolRank <= diploma.schoolParticipants / 2) {
-      scoreAndRank.push("la "+ toOrdinal(diploma.schoolRank) + " place sur " + diploma.schoolParticipants + " dans l'établissement");
+   if (diploma.schoolRank <= diploma.schoolParticipants * maxSchoolRankPercentileDisplayed) {
+      scoreAndRank.push(i18n.t("certificates_school_rank", {rank: toOrdinal(diploma.schoolRank), total: diploma.schoolParticipants}));
    }
    if (diploma.rankDemi2018 != null) {
-      scoreAndRank.push("la " + toOrdinal(diploma.rankDemi2018) + " place en demi-finale");
+      scoreAndRank.push(i18n.t("certificates_semifinals_rank", {rank: toOrdinal(diploma.rankDemi2018)}));
    }
    if (diploma.qualified) {
       scoreAndRank.push(qualificationText);
@@ -402,7 +414,7 @@ function getDisplayedScoreAndRank(diploma) {
    var str = "";
    for (var iPart = 0; iPart < scoreAndRank.length; iPart++) {
       if ((iPart == scoreAndRank.length - 1) && (iPart > 0)) {
-         str += "et ";
+         str += i18n.t("certificates_and") + " ";
       }
       str += scoreAndRank[iPart];
       if (iPart == scoreAndRank.length - 1) {
@@ -429,10 +441,10 @@ function addDiploma(content, diploma, contest, school, user) {
    }
 
    // New strings
-   var certifiedOn = 'Certifié le';
-   var certifiedBy = 'par';
+   var certifiedOn = i18n.t("certificates_certified_on");
+   var certifiedBy = i18n.t("certificates_certified_by");
 
-   var contestSubtitle = i18n.t('translations_category_label') + ' ' + grade + levelNbContestants;
+   var contestSubtitle = i18n.t('certificates_category') + grade + levelNbContestants;
    var coordName =  getCoordName(user);
    var today = dateFormat(new Date());
 
@@ -452,7 +464,7 @@ The styles depend on the contest.
       {stack: [contestLogo], absolutePosition: {x:20, y:40}},//this is an image
       {text: contestName, style: ['contestName', 'accentColor'], margin: [0, 30, 0, 20]},
       {text: contestSubtitle, style: ['contestSubtitle', 'mainColor']},
-      {text: [diploma.lastName, ' ', diploma.firstName], style: ['accentColor', 'contestantName'], margin: [0, 40, 0, 0]},
+      {text: [diploma.firstName, ' ', diploma.lastName], style: ['accentColor', 'contestantName'], margin: [0, 40, 0, 0]},
       {text: scoreAndRank, style: 'diplomaScore', margin: [0, 20, 0, 0]},
       {
          table: {
@@ -462,7 +474,7 @@ The styles depend on the contest.
             ]
          },
          layout: 'noBorders',
-         absolutePosition: {x: 20, y: 490}
+         absolutePosition: {x: 20, y: partnersStartY - 30}
       },
       {
          stack: [partnerLogos] // this is an array of images
@@ -470,11 +482,20 @@ The styles depend on the contest.
       {
         stack: [
           {text: [certifiedOn, ' ' , today]},
-          {text: [certifiedBy, ' ', coordName, '.']},
+          {text: [certifiedBy, coordName]},
           {text: [school.name, ', ', school.city]}
         ],
         absolutePosition: {x: 600, y: 490},
         width: 250
+      },
+      {
+         columns: [
+           { width: '*', text: '' },
+           { width: 'auto', text: footer },
+           { width: '*', text: '' }
+         ],
+         absolutePosition: {x: 20, y: 530},
+         width: 750
       }
    ];
    if (showYear) {
@@ -515,6 +536,26 @@ function newGenerateDiplomas(params, iPart) {
       }
 
    }
+   pdfMake.fonts = {
+        Roboto: {
+                normal: 'Roboto-Regular.ttf',
+                bold: 'Roboto-Medium.ttf',
+                italics: 'Roboto-Italic.ttf',
+                bolditalics: 'Roboto-MediumItalic.ttf'
+        },
+        NotoSansArabic: {
+                normal: 'NotoSansArabicUI-Regular.ttf',
+                bold: 'NotoSansArabic-Bold.ttf',
+                italics: 'NotoSansArabicUI-Medium.ttf',
+                bolditalics: 'NotoSansArabic-Bold.ttf'
+        },
+        Coranica: {
+                normal: 'coranica_allerseelen2012_09.ttf',
+                bold: 'coranica_allerseelen2012_09.ttf',
+                italics: 'coranica_allerseelen2012_09.ttf',
+                bolditalics: 'coranica_allerseelen2012_09.ttf'
+        },
+   };
    var docDefinition = getFullPdfDocument(content);
    pdfMake.createPdf(docDefinition).download("diplomes_" + (iPart + 1) + ".pdf")
 }
@@ -549,13 +590,13 @@ function genDocumentParts(params) {
    partsGroupsIDs.push(curPart);
    $("#buttons").html("");
    if (partsGroupsIDs.length == 0) {
-      $("#buttons").html("Aucun diplôme à imprimer");
+      $("#buttons").html(i18n.t("certificates_nothing_to_print"));
    }
    if (partsGroupsIDs.length == 1) {
-      $("#buttons").append('<p><button type="button" id="buttonPdf0" onclick="newGenerateDiplomas(params, 0)" style="display: block;margin: 0 auto">Générer le PDF</button></p>');
+      $("#buttons").append('<p><button type="button" id="buttonPdf0" onclick="newGenerateDiplomas(params, 0)" style="display: block;margin: 0 auto">' + i18n.t("certificates_generate_pdf") + '</button></p>');
    } else {
       for (var iPart = 0; iPart < partsGroupsIDs.length; iPart++) {
-         $("#buttons").append('<p><button type="button" id="buttonPdf' + iPart + '" onclick="newGenerateDiplomas(params, ' + iPart + ')" style="display: block;margin: 0 auto">Générer le PDF ' + (iPart + 1) + '/' + partsGroupsIDs.length + '</button></p>');
+         $("#buttons").append('<p><button type="button" id="buttonPdf' + iPart + '" onclick="newGenerateDiplomas(params, ' + iPart + ')" style="display: block;margin: 0 auto">' + i18n.t("certificates_generate_pdf_x", {number: (iPart + 1), total: partsGroupsIDs.length}) + '</button></p>');
       }
    }
 }

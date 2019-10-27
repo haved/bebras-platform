@@ -133,6 +133,25 @@ function getRegionsObjects(isFilter) {
    return choices;
 }
 
+function getGradesList(isFilter) {
+   var gradesList = {};
+   var gradesFilter = "";
+   var grades = [-1, -4, 3, 4, 5, 6, 16, 6, 16, 7, 17, 8, 18, 9, 19, 10, 13, 11, 14, 12, 20];
+   if (config.grades != undefined) {
+      grades = config.grades;
+   }
+   for (var iGrade = 0; iGrade < grades.length; iGrade++) {
+      var grade = grades[iGrade];
+      gradesList["" + grade] = t("grade_" + grade);
+      gradesFilter = ";" + grade + ":" + t("grade_" + grade);
+   }
+   if (isFilter) {
+      return gradesFilter;
+   } else {
+      return gradesList;
+   }
+}
+
 function getGroupsColModel() {
    var model = {
       tableName: "group",
@@ -156,28 +175,8 @@ function getGroupsColModel() {
             stype: "select", searchoptions: { value:getItemNames(contests, true)},
             required: true, 
             width: 260, comment: t("contestID_comment")},
-         grade: {label: t("group_grade_label"), editable: true, edittype: "select", width: 100, required: true, editoptions:{
-            value:{
-               "3": t("grade_3"),
-               "4": t("grade_4"),
-               "5": t("grade_5"),
-               "6": t("grade_6"),
-               "16": t("grade_16"),
-               "7": t("grade_7"),
-               "17": t("grade_17"),
-               "8": t("grade_8"),
-               "18": t("grade_18"),
-               "9": t("grade_9"),
-               "19": t("grade_19"),
-               "10": t("grade_10"),
-               "13": t("grade_13"),
-               "11": t("grade_11"),
-               "14": t("grade_14"),
-               "12": t("grade_12"),
-               "15": t("grade_15"),
-               "20": t("grade_20")
-            }, width: 260
-         }, comment: t("group_grade_comment")},
+         grade: {label: t("contestant_grade_label"), editable: true, edittype: "select", width: 100, required: true, editoptions:{
+            value: getGradesList(false)}},
          participationType: {label: t("participationType_label"), longLabel: t("participationType_long_label"), editable: true, required: true, edittype: "select", width: 100, editoptions:{ value:{"Official": t("participationType_official"), "Unofficial": t("participationType_unofficial")}}, comment: t("participationType_comment")},
          expectedStartTime: {
             label: t("expectedStartTime_label") + "<br/>(" + jstz.determine().name() + ")",
@@ -199,6 +198,7 @@ function getGroupsColModel() {
          nbStudents: {label: t("group_nbStudents_label"), longLabel: t("group_nbStudents_long_label"), editable: true, required: true, edittype: "text", subtype:"positiveint", width: 100, comment: t("group_nbStudents_comment")},
          userID: {hidden: true, visible: false, hiddenlg: true},
          contestPrintCertificates: {hidden: true, visible: false, hiddenlg: true},
+         contestPrintCodes: {hidden: true, visible: false, hiddenlg: true},
          minCategory: {label: t("group_minCategory_label"), width: 100},
          maxCategory: {label: t("group_maxCategory_label"), width: 100},
          language: {label: t("group_language_label"), width: 100},
@@ -309,50 +309,8 @@ function initModels(isLogged) {
                stype: "select", searchoptions:{ value:"_NOF_:" + t("option_no_filter") + ";1:" + t("option_female") + ";2:" + t("option_male")},
                width: 75},
             //contestants: {label: "Équipe", editable: false, width:300},
-            grade: {label: "Classe", editable: true, edittype: "select", required: true, editoptions:{
-               value:{
-                  "-1": t("grade_-1"),
-                  "-4": t("grade_-4"),
-                  "3": t("grade_3"),
-                  "4": t("grade_4"),
-                  "5": t("grade_5"),
-                  "15": t("grade_15"),
-                  "6": t("grade_6"),
-                  "16": t("grade_16"),
-                  "7": t("grade_7"),
-                  "17": t("grade_17"),
-                  "8": t("grade_8"),
-                  "18": t("grade_18"),
-                  "9": t("grade_9"),
-                  "19": t("grade_19"),
-                  "10": t("grade_10"),
-                  "13": t("grade_13"),
-                  "11": t("grade_11"),
-                  "14": t("grade_14"),
-                  "12": t("grade_12"),
-                  "20": t("grade_20")
-               }}, searchoptions:{ value:"_NOF_:" + t("option_no_filter") +
-                  ";-1:" + t("grade_-1") +
-                  ";-4:" + t("grade_-4") +
-                  ";3:" + t("grade_3") +
-                  ";4:" + t("grade_4") +
-                  ";5:" + t("grade_5") +
-                  ";6:" + t("grade_6") +
-                  ";16:" + t("grade_16") +
-                  ";7:" + t("grade_7") +
-                  ";17:" + t("grade_17") +
-                  ";8:" + t("grade_8") +
-                  ";18:" + t("grade_18") +
-                  ";9:" + t("grade_9") +
-                  ";19:" + t("grade_19") +
-                  ";10:" + t("grade_10") +
-                  ";13:" + t("grade_13") +
-                  ";11:" + t("grade_11") +
-                  ";14:" + t("grade_14") +
-                  ";12:" + t("grade_12") +
-                  ";15:" + t("grade_15") +
-                  ";20:" + t("grade_20")
-               },
+            grade: {label: t("contestant_grade_label"), editable: true, edittype: "select", required: true, editoptions:{
+               value:getGradesList(false)}, searchoptions:{ value:"_NOF_:" + t("option_no_filter") + getGradesList(true)},
                stype: "select", width:75},
             score: {label: t("contestant_score_label"), editable: false, width:75},
             nbContestants: {label: t("contestant_nbContestants_label"), editable: false, width:60, editoptions:{
@@ -365,6 +323,7 @@ function initModels(isLogged) {
                },
                edittype: "select", stype: "select"},
             rank: {label: t("contestant_rank_label"), editable: false, width:150},
+            category: {label: t("contestant_category_label"), editable: false, search: true, width: 130},
             email: {label: t("contestant_email_label"), editable: true, edittype: "text", width:150},
             zipCode: {label: t("contestant_zipCode_label"), editable: true, edittype: "text", width:150}
          }
@@ -383,7 +342,7 @@ function initModels(isLogged) {
             city: {label: t("school_city_label"), editable: true, edittype: "text", width: 200, required: true},
             zipcode: {label: t("school_zipcode_label"), longLabel: t("school_zipcode_long_label"), editable: true, edittype: "text", width: 120, required: true},
             country: {label: t("school_country_label"), editable: true, edittype: "text", width: 100, required: true},
-            nbStudents: {label: t("school_nbStudents_label"), longLabel: "Taille", editable: true, edittype: "text", subtype:"positiveint", width: 100, comment:t("school_nbStudents_comment"), required: true}
+            nbStudents: {label: t("school_nbStudents_label"), longLabel: t("school_nbStudents_label_long"), editable: true, edittype: "text", subtype:"positiveint", width: 100, comment:t("school_nbStudents_comment"), required: true}
          }
       },
       school_search: {
@@ -451,10 +410,10 @@ function initModels(isLogged) {
       user_create: {
          tableName: "user",
          fields: {
-            gender: {label: t("user_gender_label"), editable: true, edittype: "select", width: 20, editoptions:{ value:{"F": "Mme.", "M": "M."}}, required:true},
+            gender: {label: t("user_gender_label"), editable: true, edittype: "select", width: 20, editoptions:{ value:{"F": t("user_gender_female"), "M": t("user_gender_male")}}, required:true},
             lastName: {label: t("user_lastName_label"), editable: true, edittype: "text", width: 90, required: true},
             firstName: {label: t("user_firstName_label"), editable: true, edittype: "text", width: 90, required: true},
-            officialEmail: {label: t("user_officialEmail_label"), editable: true, edittype: officialEmailEditType, width: 90, required: true},
+            officialEmail: {label: t("user_officialEmail_label"), editable: true, edittype: officialEmailEditType, width: 90, required: false},
             alternativeEmail: {label: t("user_alternativeEmail_label"), editable: true, edittype: "email", width: 90},
             password: {label: t("user_password_label"), editable: true, edittype: "password", width: 90, required: true},
             password2: {label: t("user_password_confirm_label"), editable: true, edittype: "password", width: 90, required: true}
@@ -468,7 +427,7 @@ function initModels(isLogged) {
             firstName: {label: t("user_firstName_label"), editable: true, edittype: "text", width: 90, required: true},
             officialEmail: {label: t("user_officialEmail_label"), editable: true, edittype: officialEmailEditType, width: 90, required: true},
             alternativeEmail: {label: t("user_alternativeEmail_label"), editable: true, edittype: "text", width: 90},
-            old_password: {label: t("user_old_password_label"), editable: true, edittype: "password", width: 90, comment:"Si vous souhaitez modifier votre mot de passe, remplissez les 3 derniers champs. Sinon, laissez-les vides."},
+            old_password: {label: t("user_old_password_label"), editable: true, edittype: "password", width: 90, comment:t("user_change_password_explanation")},
             password: {label: t("user_new_password_label"), editable: true, edittype: "password", width: 90},
             password2: {label: t("user_new_password_confirm_label"), editable: true, edittype: "password", width: 90}
          }
@@ -678,6 +637,12 @@ function initModels(isLogged) {
          }
       }
    };
+   
+   if (config.noGender) {
+      delete models.user_create.fields.gender;
+      delete models.user_edit.fields.gender;
+   }
+   
    // These fields are only needed if your are an admin
    if (isAdmin())
    {
@@ -1020,9 +985,9 @@ function isLogged() {
 function loadUser(user) {
    var gender = '';
    if (user.gender == 'F')
-       gender = 'Mme.';
+       gender = t("user_gender_female");
    if (user.gender == 'M')
-       gender = 'M.';
+       gender = t("user_gender_male");
 
    $("#user-gender").html(gender);
    $("#user-lastName").html(user.lastName);
@@ -1104,10 +1069,10 @@ function continueLogUser() {
          $("#tabs-teams").hide();
       }
       if (state !== 'normal') {
-         $("#li-tabs-awards").hide();
          $("#li-tabs-certificates").hide();
          $("#tabs-certificates").hide();
       }      
+      $("#li-tabs-awards").hide();
       $("#tabs-questions").hide();
       $("#tabs-contests").hide();
       if (state === 'normal') {
@@ -1911,6 +1876,7 @@ function newForm(modelName, title, message, item) {
             html += "<option value='" + allowedDomain + "'>" + allowedDomain + "</option>";
          }
          html += "</select>";
+         html += "<br/><input type='checkbox' id='" + fieldId + "_none'>" + t("user_no_official_email");
       } else if (field.edittype === "datetime") {
          html += "<input id='" + fieldId + "_date' type='text' "+requiredString+"/> ";
          html += " à ";
@@ -1929,8 +1895,16 @@ function newForm(modelName, title, message, item) {
       html += '<label><input type="checkbox" id="users_okMail">';
       html += t('user_accept_email')+'</label>';
    }
+<<<<<<< HEAD
    html += "<input id='buttonValidate_" + modelName + "' type='button' value='" + t('OK') +"' onclick='validateForm(\"" + modelName + "\")' class='btn btn-primary'/> ";
    html += "<input id='buttonCancel_" + modelName + "' type='button' value='" + t('cancel') + "' onclick='endEditForm(\"" + modelName + "\", 0 , {})' class='btn btn-default'/>";
+||||||| merged common ancestors
+   html += "<input id='buttonValidate_" + modelName + "' type='button' value='OK' onclick='validateForm(\"" + modelName + "\")' class='btn btn-primary'/> ";
+   html += "<input id='buttonCancel_" + modelName + "' type='button' value='Annuler' onclick='endEditForm(\"" + modelName + "\", 0 , {})' class='btn btn-default'/>";
+=======
+   html += "<input id='buttonValidate_" + modelName + "' type='button' value='OK' onclick='validateForm(\"" + modelName + "\")' class='btn btn-primary'/> ";
+   html += "<input id='buttonCancel_" + modelName + "' type='button' value='" + t("cancel") + "' onclick='endEditForm(\"" + modelName + "\", 0 , {})' class='btn btn-default'/>";
+>>>>>>> origin/master
    html += "<div id='edit_form_error' style='color:red'></div>";
    $("#edit_form").html(html);
    eval(js);
@@ -2022,7 +1996,7 @@ function printGroupAwards() {
       return;
    }
    var group = groups[groupID];
-   if (group.participationType != 'Official' || group.contestPrintCertificates != 1) {
+   if (group.participationType != 'Official' || group.contestPrintCodes != 1) {
       jqAlert(t("group_print_awards_impossible"));
       return;
    }
@@ -2090,14 +2064,27 @@ function editForm(modelName, title, item) {
    showForm(modelName);
 }
 
+function checkEmailFormat(email) {
+   var re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+   return re.test(email);
+}
+
 function checkUser(user, isCreate) {
-   if (user.officialEmail !== "") {
-      var firstAt = user.officialEmail.indexOf("@");
-      if (user.officialEmail.indexOf("@", firstAt + 1) > 0) {
-         $("#edit_form_error").html(t("invalid_officialEmail"));
-         return false;
-      }
+   /*
+   var firstAt = user.officialEmail.indexOf("@");
+   if (user.officialEmail.indexOf("@", firstAt + 1) == 0) {
+      user.officialEmail = "";
    }
+   */
+   if (user.officialEmail == "none") {
+      $("#edit_form_error").html(t("teacher_required"));
+      return false;
+   }
+   if ((user.officialEmail == "") && (user.alternativeEmail == "")) {
+      $("#edit_form_error").html(t("missing_email"));
+      return false;
+   }
+   
    var minPasswordLength = 6;
    if (user.password != user.password2) {
       $("#edit_form_error").html(t("passwords_different"));
@@ -2166,11 +2153,6 @@ function getSQLFromDate(date) {
    }
 }
 
-function validateEmailAddress(email) {
-   var re = /\S+@\S+\.\S+/;
-   return re.test(email);
-}
-
 
 function validateForm(modelName) {
    var item = {};
@@ -2197,20 +2179,26 @@ function validateForm(modelName) {
          var fullDate = date + " " + hours + ":" + minutes;
          item[fieldName] = localDateToUtc(fullDate);
       } else if (field.edittype === "ac-email") {
-         if ($("#" + modelName + "_" + fieldName + "_domain").val() === "undefined") {
+         if ($("#" + modelName + "_" + fieldName + "_none").is(":checked")) {
+            item[fieldName] = "";
+         } else if ($("#" + modelName + "_" + fieldName + "_domain").val() === "undefined") {
             if (item[fieldName] !== "") {
                jqAlert(t("official_email_invalid"));
                return;
             }
-            item[fieldName] = "";
+            item[fieldName] = "none";
          }
          else {
             var domain = $("#" + modelName + "_" + fieldName + "_domain").val();
             item[fieldName] += "@" +  domain;
+            if (!checkEmailFormat(item[fieldName])) {
+               jqAlert(t("official_email_invalid"));
+               return;
+            }
          }
       } else if (field.edittype == 'email') {
-         if (item[fieldName] && !validateEmailAddress(item[fieldName])) {
-            jqAlert(t("user_invalid_email"));
+         if (item[fieldName] && !checkEmailFormat(item[fieldName])) {
+            jqAlert(t("invalid_alternativeEmail"));
             return;
          }
       }
@@ -2291,7 +2279,7 @@ function validateForm(modelName) {
          endEditForm(modelName, data.recordID, item);
          if (modelName === "user_create") {
             if (item.officialEmail) {
-               jqAlert(t("you_will_get_email") + window.config.infoEmail);
+               jqAlert(t("you_will_get_email") + " " + window.config.infoEmail);
             } else {
                jqAlert(t("no_official_email_1") + getMailToManualValidation(t("contact_us")) + window.config.infoEmail + " " + t("no_official_email_2"));
             }
@@ -2497,7 +2485,10 @@ function getMailToManualValidation(message) {
 
 function newUser() {
    initModels(false);
-   var message = "<p>" + t("warning_official_email_required") + getMailToManualValidation(window.config.infoEmail) + "</p>";
+   var message = "";
+   if (window.config.forceOfficialEmailDomain) {
+      message = "<p>" + t("warning_official_email_required") + getMailToManualValidation(window.config.infoEmail) + "</p>";
+   }
 
    newForm("user_create", t("user_registration"), message);
 }

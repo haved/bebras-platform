@@ -7,27 +7,30 @@ require_once("commonAdmin.php");
 include('./config.php');
 header('Content-type: text/html');
 
-$translationStrings = getTeacherTranslationStrings();
-
-$errorMessage = str_replace('__contactEmail__', $config->email->sInfoAddress, $translationStrings['validate_email_error']);
+$errorMessage = str_replace('__contactEmail__', $config->email->sInfoAddress, translate('validate_email_error'));
 
 function validateEmail($type, $email, $salt) {
-   global $db, $config, $errorMessage, $translationStrings;
+   global $db, $config, $errorMessage;
    $query = "SELECT * FROM `user` WHERE (`".$type."` = ? AND `salt` = ?)";
    $stmt = $db->prepare($query);
    $stmt->execute(array($email, $salt));
    if ($row = $stmt->fetchObject()) {
       $validate = "";
-      if ($type === "officialEmail") {
+      $message = translate('validate_email_ok');
+      if (($type === "officialEmail") && ($config->teacherInterface->forceOfficialEmailDomain)) {
          $validate = ", `validated` = 1 ";
+      } else {
+         $message = translate('validate_email_unofficial');         
       }
       $query = "UPDATE `user` SET `".$type."Validated` = 1 ".$validate." WHERE (`ID` = ?)";
       $stmt = $db->prepare($query);
       $stmt->execute(array($row->ID));
-      echo str_replace('__email__', $email, $translationStrings['validate_email_ok']);
+      $message = str_replace('__email__', $email, $message);
+      echo str_replace('__email_info__', $config->email->sInfoAddress, $message);
    } else {
       echo $errorMessage;
    }
+   echo "<br/><br/>";
 }
 
 echo "

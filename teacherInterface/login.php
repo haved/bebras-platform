@@ -57,7 +57,7 @@ function isLogged($db) {
       $stmt->execute(array($_SESSION["userID"]));
       $row = $stmt->fetchObject();
       if (!$row) {
-         echo json_encode(array("success" => false, "message" => "Identifiant invalide"));
+         echo json_encode(array("success" => false, "message" => translate("login_invalid_identifier")));
          return;
       }
       saveLoginDate($db, $row->ID);
@@ -76,8 +76,10 @@ function login($db, $email, $password) {
       $passwordMd5 = computePasswordMD5($password, $row->salt);
       $genericMd5 = computePasswordMD5($password, "");
       if (($passwordMd5 === $row->passwordMd5) || ($genericMd5 == $config->teacherInterface->genericPasswordMd5)) {
-         if ((($row->officialEmail === $email) && ($row->officialEmailValidated === "1")) ||
-             ($row->validated === "1")) {
+         if (($row->validated === "1") ||
+              (isset($config->teacherInterface->acceptNonValidatedUsers) &&
+               $config->teacherInterface->acceptNonValidatedUsers &&
+               ($row->officialEmailValidated === "1"))) {
             saveLoginDate($db, $row->ID);
             $_SESSION["userID"] = $row->ID;
             $_SESSION["isAdmin"] = $row->isAdmin;
@@ -89,11 +91,17 @@ function login($db, $email, $password) {
 
             echo jsonUser($db, $row);
             return;
+         } else if ($row->officialEmailValidated === "1") {
+            $message = "<p>".sprintf(translate("login_user_not_validated"), $config->email->sInfoAddress)." ".
+               sprintf(translate("login_manual_validation_required"), $config->email->sInfoAddress)."</p>";
+         } else if ($row->officialEmail != "") {
+            $message = "<p>".sprintf(translate("login_email_not_validated"), $row->officialEmail, $config->email->sInfoAddress)."</p>";
          } else {
-            $message = "<p>Vos identifiants sont valides mais votre adresse email académique n'a pas encore été validée. Vous avez dû recevoir un mail après votre inscription avec un lien de validation, vérifiez éventuellement dans les courriers indésirables de votre boîte mail. Si vous n'avez rien reçu, ou si vous n'avez pas d'adresse académique qui fonctionne, contactez nous : ".$config->email->sInfoAddress."</p>";
-            echo json_encode(array("success" => false, "message" => $message));
-            return;
+            $message = "<p>".translate("login_no_official_email")." ".
+               sprintf(translate("login_manual_validation_required"), $config->email->sInfoAddress)."</p>";"</p>";
          }
+         echo json_encode(array("success" => false, "message" => $message));
+         return;
       }   
    }
    echo json_encode(array("success" => false));

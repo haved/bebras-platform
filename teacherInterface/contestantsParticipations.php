@@ -44,7 +44,7 @@ require_once("../shared/common.php");
 require_once("commonAdmin.php");
 
 if (!isset($_SESSION["userID"])) {
-   echo "Votre session a expiré, veuillez vous reconnecter.";
+   echo translate("session_expired");
    exit;
 }
 
@@ -58,14 +58,14 @@ if (isset($_GET["mergeCodes"])) {
 }
 
 
-echo "<h1>Synthèse des résultats Castor et Algoréa</h1>";
+echo "<h1>".translate("results_synthesis_title")."</h1>";
 
-echo "<b>Options d'affichage</b><br/>";
+echo "<b>".translate("results_display_options")."</b><br/>";
 echo "<ul>";
 if ($showCodes) {
-   echo "<li><a href='contestantsParticipations.php?showCodes=0'>Masquer les codes de participants</a>";
+   echo "<li><a href='contestantsParticipations.php?showCodes=0'>".translate("results_hide_participation_codes")."</a>";
 } else {
-   echo "<li><a href='contestantsParticipations.php?showCodes=1'>Afficher les codes de participants</a>";
+   echo "<li><a href='contestantsParticipations.php?showCodes=1'>".translate("results_show_participation_codes")."</a>";
 }
 /*
 if ($mergeCodes) {
@@ -75,17 +75,18 @@ if ($mergeCodes) {
 }
 */
 echo "</ul>";
-echo "<p>Dans les résultats ci-dessous, des élèves peuvent apparaître en double s'ils n'ont pas utilisé leur code de participant pour participer à Algoréa.</p>";
+echo "<p>".translate("results_students_may_appear_twice")."</p>";
 
-$grades = array(-2 => "Inconnu", -1 => "Profs", -4 => "Autres", 4 => "CM1", 5 => "CM2", 6 => "6e", 7 => "5e", 8 => "4e", 9 => "3e", 10 => "2de", 11 => "1ère", 12 => "Tale", 13 => "2de<br/>pro", 14 => "1ère<br/>pro", 15 => "Tale<br/>pro", 16 => "6e Segpa", 17 => "5e Segpa", 18 => "4e Segpa", 19 => "3e Segpa", 20 => "Post-Bac");
+echo "<p><b>Classement Algoréa :</b> un classement unique par niveau scolaire est calculé pour chaque participant et mis à jour après chaque tour. Dans chaque niveau scolaire, sont classés en tête les participants ayant obtenu des points dans la catégorie verte par ordre de leur score, puis ceux ayant des points dans la catégorie orange, puis la jaune, puis la blanche.</p>";
 
-$allContestIDs = ["118456124984202960","884044050337033997","112633747529078424", "404363140821714044"];
+$mainContestID = "822122511136074554";
+$allContestIDs = ["822122511136074554","337033997884044050", "288404405033703399", "288404405033703401"];
 
 $query = "SELECT ID, name FROM contest WHERE ID IN (".join(",", $allContestIDs).")";
 $stmt = $db->prepare($query);
 $stmt->execute(array("userID" => $_SESSION['userID']));
 echo "<div style='border:solid black 1px;padding:5px;width:400px'>";
-echo "<p>N'afficher que les participants aux concours :</p>";
+echo "<p>".translate("results_show_only_participants_of")."</p>";
 echo "<form name='filter' method='post'>";
 $data = array();
 while ($row = $stmt->fetchObject()) {
@@ -105,7 +106,7 @@ foreach ($allContestIDs as $contestID) {
 if (count($contestIDs) == 0) {
    $contestIDs = $allContestIDs;
 }
-echo "<input type='submit' value='Filtrer' />";
+echo "<input type='submit' value='".translate("filter")."' />";
 echo "</form></div>";
 
 
@@ -113,6 +114,7 @@ $categories = ["blanche", "jaune", "orange", "verte", "bleue"];
 
 
 $query = "
+   SELECT * FROM (
    SELECT
       IFNULL(contestant.registrationID, contestant.ID) as ID,
       contestant.firstName,
@@ -133,6 +135,8 @@ $query = "
       algorea_registration.category,
       algorea_registration.validatedCategory,
       algorea_registration.round,
+      algorea_registration.algoreaRank,
+      algorea_registration.algoreaSchoolRank,
       algorea_registration.scoreDemi2018,
       algorea_registration.rankDemi2018,
       algorea_registration.qualifiedFinal,
@@ -153,7 +157,54 @@ $query = "
       LEFT JOIN `contest` parentContest ON contest.parentContestID = parentContest.ID
    WHERE (`contest`.ID IN (".join(",", $contestIDs).") OR `contest`.parentContestID IN (".join(",", $contestIDs)."))
    AND `group`.userID = :userID
-   ORDER BY schoolID, IFNULL(contestant.registrationID, contestant.ID), team.score DESC";
+   
+   UNION DISTINCT    
+       
+   SELECT
+      IFNULL(contestant.registrationID, contestant.ID) as ID,
+      contestant.firstName,
+      contestant.lastName,
+      contestant.grade,
+      team.score,
+      team.nbContestants,
+      contestant.rank,
+      contestant.schoolRank,
+      team.participationType,
+      team.groupID,
+      `group`.name as groupName,
+      team.password,
+      algorea_registration.code,
+      algorea_registration.firstName as regFirstName,
+      algorea_registration.lastName as regLastName,
+      algorea_registration.grade as regGrade,
+      algorea_registration.category,
+      algorea_registration.validatedCategory,
+      algorea_registration.round,
+      algorea_registration.algoreaRank,
+      algorea_registration.algoreaSchoolRank,
+      algorea_registration.scoreDemi2018,
+      algorea_registration.rankDemi2018,
+      algorea_registration.qualifiedFinal,
+      `group`.contestID,
+      contest.parentContestID,
+      contest.name as contestName,
+      parentContest.name as parentContestName,
+      contest.language,
+      contest.categoryColor,
+      school.name as schoolName,
+      school.ID as schoolID
+   FROM `algorea_registration`
+      JOIN contestant ON contestant.registrationID = algorea_registration.ID
+      JOIN team ON team.ID = `contestant`.teamID
+      JOIN `group` ON `group`.ID = team.groupID
+      JOIN `contest` ON `group`.contestID = contest.ID
+      JOIN `school` ON `school`.ID = `algorea_registration`.schoolID
+      LEFT JOIN `contest` parentContest ON contest.parentContestID = parentContest.ID
+   WHERE (`contest`.ID IN (".join(",", $contestIDs).") OR `contest`.parentContestID IN (".join(",", $contestIDs)."))
+   AND `algorea_registration`.userID = :userID       
+       
+   ) data
+   ORDER BY schoolID, ID, score DESC";
 
 $stmt = $db->prepare($query);
 $stmt->execute(array("userID" => $_SESSION['userID']));
@@ -206,6 +257,8 @@ while ($row = $stmt->fetchObject()) {
              "qualifiedFinal" => $row->qualifiedFinal,
              "qualifiedCategory" => $row->category,
              "validatedCategory" => $row->validatedCategory,
+             "algoreaRank" => $row->algoreaRank,
+             "algoreaSchoolRank" => $row->algoreaSchoolRank,
              "bebrasGroup" => "-"
           );
       } else {
@@ -221,6 +274,8 @@ while ($row = $stmt->fetchObject()) {
              "qualifiedFinal" => $row->qualifiedFinal,
              "qualifiedCategory" => "-",
              "validatedCategory" => "-",
+             "algoreaRank" => $row->algoreaRank,
+             "algoreaSchoolRank" => $row->algoreaSchoolRank,
              "bebrasGroup" => "-"
           );
       }
@@ -229,7 +284,7 @@ while ($row = $stmt->fetchObject()) {
           "results" => array()
       );
    }
-   if ($row->contestID == "118456124984202960") {
+   if ($row->contestID == $mainContestID) {
       $contestants[$row->ID]["infos"]["bebrasGroup"] = $row->groupName;
    }
    if (!isset($contestants[$row->ID]["results"][$contestKey])) {
@@ -251,12 +306,17 @@ foreach ($schools as $schoolID => $school) {
    echo "<h2>".$school["name"]."</h2>";
    $contestants = $school["contestants"];
 
-   echo "<table class='results' cellspacing=0><tr><td rowspan=2>Groupe Castor</td><td rowspan=2>Prénom</td><td rowspan=2>Nom</td><td rowspan=2>Classe</td><td rowspan=2>Qualifié en<br/>catégorie</td>";
+   echo "<table class='results' cellspacing=0><tr>".
+        "<td rowspan=2>".translate("results_bebras_group")."</td>".
+        "<td rowspan=2>".translate("contestant_firstName_label")."</td>".
+        "<td rowspan=2>".translate("contestant_lastName_label")."</td>".
+        "<td rowspan=2>".translate("contestant_grade_label")."</td>".
+        "<td rowspan=2>".translate("results_qualified_in_category")."</td>";
    if ($showCodes) {
-      echo "<td rowspan=2>Code de participant</td>";
+      echo "<td rowspan=2>".translate("participation_code")."</td>";
    }
    if ($mergeCodes) {
-      echo "<td rowspan=2>Déplacer vers le code</td>";
+      echo "<td rowspan=2>".translate("results_transfer_to_code")."</td>";
    }
    foreach ($contestIDs as $mainContestKey) {
       if (!isset($contests[$mainContestKey])) {
@@ -269,7 +329,9 @@ foreach ($schools as $schoolID => $school) {
       }
       echo ">".$mainContestsNames[$mainContestKey]."</td>";
    }
-   echo "<td rowspan=2 style='width:70px'>Demi-finale</td>";
+   echo "<td rowspan=2 style='width:100px'>".translate("results_ranking_national")."</td>";
+   echo "<td rowspan=2 style='width:100px'>".translate("results_ranking_school")."</td>";
+   echo "<td rowspan=2 style='width:70px'>".translate("results_semi_finals")."</td>";
    echo "</tr><tr>";
    foreach ($contestIDs as $mainContestKey) {
       if (!isset($contests[$mainContestKey])) {
@@ -304,7 +366,7 @@ foreach ($schools as $schoolID => $school) {
          "<td>".$contestant["infos"]["bebrasGroup"]."</td>".
          "<td>".$contestant["infos"]["firstName"]."</td>".
          "<td>".$contestant["infos"]["lastName"]."</td>".
-         "<td>".$grades[$contestant["infos"]["grade"]]."</td>".
+         "<td>".translate("grade_short_".$contestant["infos"]["grade"])."</td>".
          "<td class='".$contestant["infos"]["qualifiedCategory"]."'>".$contestant["infos"]["qualifiedCategory"]."</td>";
       if ($showCodes) {
          echo "<td>".$contestant["infos"]["code"]."</td>";
@@ -329,28 +391,41 @@ foreach ($schools as $schoolID => $school) {
          }
       }
       echo "<td>";
+      if ($contestant["infos"]["algoreaRank"] != null) {
+         echo $contestant["infos"]["algoreaRank"]."e<br/>des ".translate("grade_short_".$contestant["infos"]["grade"])."<br/>(3e tour)";
+      } echo "</td>";
+      echo "<td>";
+      if ($contestant["infos"]["algoreaSchoolRank"] != null) {
+         echo $contestant["infos"]["algoreaSchoolRank"]."e<br/>des ".translate("grade_short_".$contestant["infos"]["grade"])."<br/>(3e tour)";
+      } echo "</td>";
+      echo "<td>";
       if ($contestant["infos"]["round"] == "1") {
-         $score = $contestant["infos"]["scoreDemi2018"];
+         echo "qualifié";
+         /*
+         $score = $contestant["infos"]["scoreDemi2019"];
          if (($score != null) && ($score > 0)) {
             echo $score;
             echo "<br/>";
             $qualifiedFinal = $contestant["infos"]["qualifiedFinal"];
             echo "<span class='rank'>";
             if ($qualifiedFinal == "0") {
-               echo $contestant["infos"]["rankDemi2018"]."e des ".$grades[$contestant["infos"]["grade"]]."<br/>pas en finale";
+               echo $contestant["infos"]["rankDemi2019"]."e des ".translate("grade_short_".$contestant["infos"]["grade"])."<br/>".
+               translate("results_not_qualified_to_finals");
             } else if ($qualifiedFinal == "1") {
-               echo "Finaliste (à Paris)";
+               echo translate("results_qualified_to_finals");
             } else {
-               echo "Qualifié pour la<br/>finale en ligne";
+               echo translate("results_qualified_to_online_finals");
             }
             echo "</span>";
          } else {
             echo "-";
          }
+         */
       } else {
          echo "-";
       }
       echo "</td>";
+      
       echo "</tr>";
    }
 
@@ -358,20 +433,27 @@ foreach ($schools as $schoolID => $school) {
 }
 
 function showContestantResult($contestant, $contestKey, $category) {
-   global $grades;
    if (isset($contestant["results"][$contestKey])) {
       $result = $contestant["results"][$contestKey];
-      $rankInfos = "classement en attente";
-      if ($result["rank"] != '') {
-         $rankGroup = $grades[$contestant["infos"]["grade"]]." ";
-         if ($result["nbContestants"] == "1") {
-            $rankGroup .= "individuels";
+      if ($category == '') {
+         $rankInfos = translate("results_ranking_in_progress");
+      } else {
+         if ($result["score"] != "") {
+            $rankInfos = "";
          } else {
-            $rankGroup .= "binômes";
+            $rankInfos = translate("results_score_in_progress");
          }
-         $rankInfos = $result["rank"]."e des ".$rankGroup;
+      }
+      if ($result["rank"] != '') {
+         $rankGroup = translate("grade_short_".$contestant["infos"]["grade"])." ";
+         if ($result["nbContestants"] == "1") {
+            $rankGroup .= translate("results_individuals");
+         } else {
+            $rankGroup .= translate("results_teams");
+         }
+         $rankInfos = sprintf(translate("results_rank_of"), $result["rank"], $rankGroup);
       } else if ($result["participationType"] == "Unofficial") {
-         $rankInfos = "Hors concours";
+         $rankInfos = translate("results_unofficial");
       }
       echo "<td class='".$category."'>".
          $result["score"]."<br/>".

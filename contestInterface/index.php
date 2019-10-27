@@ -20,7 +20,42 @@
 </div>
 <form id="mainContent" autocomplete="off">
 
-  <div id="browserAlert" data-i18n="[html]browser_support"></div>
+<?php
+// Check browser parameters
+$browserVerified = true;
+$browserOld = false;
+if($config->contestInterface->browserCheck) {
+  require_once __DIR__.'/../vendor/autoload.php';
+  $browser = new WhichBrowser\Parser($_SERVER['HTTP_USER_AGENT']);
+  if($config->contestInterface->browserCheck == 'bebras-platform') {
+    $browserVerified = $browser->isBrowser('Firefox', '>=', '3.6') ||
+         $browser->isBrowser('Chrome', '>=', '5') ||
+         $browser->isBrowser('Silk', '>=', '5') ||
+         $browser->isBrowser('Safari', '>=', '9') ||
+         $browser->isBrowser('Internet Explorer', '>=', '8') ||
+         $browser->isBrowser('Edge');
+  } elseif($config->contestInterface->browserCheck == 'quickAlgo') {
+    $browserVerified = $browser->isBrowser('Firefox', '>=', '43') ||
+         $browser->isBrowser('Chrome', '>=', '35') ||
+         $browser->isBrowser('Silk', '>=', '35') ||
+         $browser->isBrowser('Safari', '>=', '9') ||
+         $browser->isBrowser('Edge', '>=', '12');
+  }
+  $browserOld = $browser->isBrowser('Firefox', '<', '60') ||
+                $browser->isBrowser('Chrome', '<', '64') ||
+                $browser->isBrowser('Silk', '<', '64') ||
+                $browser->isBrowser('Safari', '<', '9') ||
+                $browser->isBrowser('Edge', '<', '41') ||
+                $browser->isBrowser('Internet Explorer');
+}
+
+if(!$browserVerified) {
+    // The message changes depending on the browserCheck value
+    echo '<div id="browserAlert" data-i18n="[html]browser_support_' . $config->contestInterface->browserCheck . '"></div>';
+}
+
+$browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
+?>
 
 
   <nav id="mainNav">
@@ -60,11 +95,15 @@
     <p>Pour <b>voir votre score détaillé</b> si vous avez participé au concours 2012, cliquez sur "Continuer le concours" et saisissez votre code personnel fourni au début de l'épreuve. Vous aurez aussi accès aux réponses et à une <b>correction détaillée</b> en dessous de chaque question.</p>
     <h3>Vous démarrez un concours en classe, pour la première fois ?</h3>
     -->
-    <div id="submitParticipationCode">
+    <div id="submitParticipationCode" <?=(!$browserVerified || $browserOld) ? 'class="needBrowserConfirm"' : '' ?>>
       <div class="tabTitle" data-i18n="general_start_contest"></div>
       <p class="stepName" data-i18n="[html]tab_start_contest_enter_code"></p>
+      <div class="browserConfirm">
+        <span data-i18n="[html]<?=$browserVerified ? 'browser_support_old' : 'browser_support_confirm'?>"></span><br>
+        <button type="button" onclick="confirmUnsupportedBrowser()" data-i18n="browser_support_confirm_btn" class="btn btn-primary"></button>
+      </div>
       <div class="divInput form-inline">
-        <input id="groupCode" type="text" class="form-control" />
+        <input id="groupCode" type="text" class="form-control" autocorrect="off" autocapitalize="none"/>
         <button type="button" id="buttonCheckGroup" onclick="checkGroup()" data-i18n="tab_start_contest_start_button" class="btn btn-primary"></button>
         <div><span id="CheckGroupResult" style="color:red"></span></div>
       </div>
@@ -72,7 +111,7 @@
     <div id="recoverGroup" style="display:none;">
       <p data-i18n="[html]group_session_expired_recover"></p>
       <div class="divInput form-inline">
-        <input id="recoverGroupPass" type="password" class="form-control" />
+        <input id="recoverGroupPass" type="password" class="form-control" autocorrect="off" autocapitalize="none" />
         <button type="button" id="buttonRecoverGroup" onclick="recoverGroup()" data-i18n="submitPass" class="btn btn-default"></button>
         <div><span id="recoverGroupResult" style="color:red"></span></div>
       </div>
@@ -84,7 +123,7 @@
     <div class="tabTitle" data-i18n="general_continue_contest"></div>
     <p><span data-i18n="tab_view_results_access_code"></span></p>
     <div class="divInput form-inline">
-      <input id="interruptedPassword" type="password" class="form-control">
+      <input id="interruptedPassword" type="text" class="form-control" autocorrect="off" autocapitalize="none">
       <button type="button" id="buttonInterrupted" class="btn btn-default" onclick="checkPasswordInterrupted()" data-i18n="tab_view_results_view_results_button"></button>
       <div><span id="InterruptedResult" style="color:red"></span></div>
     </div>
@@ -101,39 +140,12 @@
       </div>
       <p data-i18n="tab_view_ask_password_to_teacher"></p>
       <div class="divInput form-inline">
-        <input id="groupPassword" type="password" class="form-control">
+        <input id="groupPassword" type="password" class="form-control" autocorrect="off" autocapitalize="none">
         <button type="button" id="buttonRelogin" class="btn btn-default" onclick="relogin()" data-i18n="tab_view_restart_contest"></button>
         <div><span id="ReloginResult" style="color:red"></span></div>
       </div>
     </div>
   </div><!-- #tab-continue -->
-
-  <div id="tab-results" style="display:none" class="tabContent">
-    <div class="tabTitle" data-i18n="general_view_results"></div>
-    <p data-i18n="tab_view_results_access_code"></p>
-    <div class="divInput form-inline">
-      <input id="interruptedPassword" type="password" class="form-control">
-      <button type="button" id="buttonInterrupted" class="btn btn-default" onclick="checkPasswordInterrupted()" data-i18n="tab_view_results_view_results_button"></button>
-      <div><span id="InterruptedResult" style="color:red"></span></div>
-    </div>
-    <p data-i18n="tab_view_results_info_1"></p>
-    <p><b data-i18n="tab_view_results_info_2"></b></p>
-    <!--<p>Si vous ne disposez pas de mot de passe mais que vous êtes en classe, alors entrez le code de groupe fourni par votre enseignant.</p>-->
-    <p data-i18n="tab_view_results_info_3"></p>
-    <p data-i18n="tab_view_results_info_4"></p>
-    <div id="divRelogin" style="display:none">
-      <p data-i18n="tab_view_select_team_in_list"></p>
-      <div class="divInput">
-        <select id="selectTeam"><option value='0' data-i18n="tab_view_select_team"></option></select>
-      </div>
-      <p data-i18n="tab_view_ask_password_to_teacher"></p>
-      <div class="divInput form-inline">
-        <input id="groupPassword" type="password" class="form-control">
-        <button type="button" id="buttonRelogin" class="btn btn-default" onclick="relogin()" data-i18n="tab_view_restart_contest"></button>
-        <div><span id="ReloginResult" style="color:red"></span></div>
-      </div>
-    </div>
-  </div><!-- #tab-results -->
 
   <div id="tab-contests" style="display:none" class="tabContent">
     <div class="tabTitle" data-i18n="general_view_other_contests"></div>
@@ -336,7 +348,7 @@
               <span data-i18n="[html]login_input_registrationCode"></span>
               <input id="registrationCode1" type="text" autocomplete="off" class="form-control" /></p>
             <p><i data-i18n="login_registrationCode_description"></i></p>
-            <button type='button' onclick="validateRegistrationCode(1)" class="btn btn-default" data-i18n="login_validate_code"></button>
+            <button id="validateRegCode1" type='button' onclick="validateRegistrationCode(1)" class="btn btn-default" data-i18n="login_validate_code"></button>
             <p><span id="errorRegistrationCode1" style="color:red;font-weight:bold"></span></p>
           </div>
           <div id="noRegistrationCode1" style="display:none" class="form-inline">
@@ -392,7 +404,7 @@
               <span data-i18n="[html]login_input_registrationCode"></span>
               <input id="registrationCode2" type="text" autocomplete="off" class="form-control" /></p>
             <p><i data-i18n="login_registrationCode_description"></i></p>
-            <button type='button' onclick="validateRegistrationCode(2)" class="btn btn-default" data-i18n="login_validate_code"></button>
+            <button id="validateRegCode2" type='button' onclick="validateRegistrationCode(2)" class="btn btn-default" data-i18n="login_validate_code"></button>
             <p><span id="errorRegistrationCode2" style="color:red;font-weight:bold"></span></p>
           </div>
           <div id="noRegistrationCode2" style="display:none" class="form-inline">
@@ -465,6 +477,7 @@
       <tr><td>Prénom :</td><td id="persoFirstName"></td></tr>
       <tr><td>Classe :</td><td id="persoGrade"></td></tr>
       <tr><td>Qualifié pour la catégorie :</td><td id="persoCategory"></td></tr>
+      <tr><td>Qualifié en demi-finale :</td><td id="persoSemifinal"></td></tr>      
    </table>
    </p>
    <p>   
@@ -477,8 +490,8 @@
    </table>
    </p>
    <p id="contestAtHomePrevented" style="display:none">
-       Votre enseignant à indiqué que le concours officiel doit se faire en classe, avec un code de groupe.<br/>
-       Vous ne pouvez donc pas commencer le concours depuis cette interface, mais cous pouvez faire des préprations à la maison.
+       Votre enseignant a indiqué que le concours officiel doit se faire en classe, avec un code de groupe.<br/>
+       Vous ne pouvez donc pas commencer le concours depuis cette interface, mais vous pouvez faire des préparations à la maison.
    </p>
    <h3>Participations :</h3>
    <table id="pastParticipations" cellspacing=0>
@@ -537,7 +550,7 @@
          </td></tr>
       </table>
    </div>
-   <div class="newInterface" style="padding-bottom:1em">
+   <div class="newInterface headerElements">
       <div class="header">
          <table class="header_table">
             <tr>
@@ -547,6 +560,25 @@
                <td class="header_rank" style="display:none"><span data-i18n="rank"></span> <br/><b><span class="rank" width="95%"></span></b></td>
                <td class="header_button">
                  <button class="button_return_list" type="button" data-i18n="return_to_list" onclick="backToList()" ></button>
+               </td>
+               <td class="header_button header_button_fullscreen">
+                 <button type="button" data-i18n="fullscreen" onclick="toggleFullscreen()" ></button>
+               </td>
+            </tr>
+         </table>
+      </div>
+      <div class="headerAutoHeight">
+         <table class="headerAutoHeight_table">
+            <tr>
+               <td class="headerAutoHeight_logo" data-i18n="[html]top_image_new"></td>
+               <td class="headerAutoHeight_time"><b><span class='minutes'></span>:<span class='seconds'></span></b></td>
+               <td class="headerAutoHeight_title"><span class="questionTitle" style="padding-right: 20px"></span><span id="questionStars"></span></td>
+               <td class="headerAutoHeight_score"><b><span class='scoreTotalFullFeedback'></span></b></td>
+               <td class="headerAutoHeight_button">
+                 <button class="button_return_list" type="button" data-i18n="return" onclick="backToList()" ></button>
+               </td>
+               <td class="headerAutoHeight_button header_button_fullscreen">
+                 <button type="button" data-i18n="fullscreen" onclick="toggleFullscreen()" ></button>
                </td>
             </tr>
          </table>
@@ -571,10 +603,11 @@
 </div>
 
 <div id="question-iframe-container" style="display:none" autocomplete="off">
-   <div class="newInterface" style="width:770px;margin:auto;text-align:left;padding: 10px 0 10px">
-      <span class="questionTitle" style="padding-right: 20px"></span><span id="questionStars"></span>
+   <!--<div class="questionIframeLoading" data-i18n="questions_loading"></div>-->
+   <div class="newInterface questionIframeHeader">
+      <span class="questionTitle" style="padding-right: 20px"></span><span id="questionIframeStars"></span>
    </div>
-   <iframe src="about:blank" id="question-iframe" scrolling="no"></iframe>
+   <iframe src="about:blank" id="question-iframe" scrolling="no" allowfullscreen></iframe>
 </div>
 <div id="divFooter" style="display:none;text-align:center" autocomplete="off">
    <div class="header_sep_bottom"></div>
@@ -595,10 +628,13 @@
    </div>
    <div id="divClosedRemindPassword" style="display:none">
       <p>
-         <b data-i18n="closed_remind_password"></b>
+         <b data-i18n="[html]closed_remind_password"></b>
       </p>
       <p>
          <span data-i18n="closed_your_password"></span> <span class='selectable' id="remindTeamPassword"></span>
+      </p>
+      <p id="scoreReminder" style="display:none">
+         <span data-i18n="score"></span> <span id="remindScore"></span>
       </p>
    </div>
 </div>
@@ -644,6 +680,7 @@
   window.sAbsoluteStaticPath = <?= json_encode(upgrade_url($config->teacherInterface->sAbsoluteStaticPath.'/')) ?>;
   window.sAssetsStaticPath = <?= json_encode(upgrade_url($config->teacherInterface->sAssetsStaticPath.'/')) ?>;
   window.timestamp = <?= $config->timestamp ?>;
+  window.browserIsMobile = <?=$browserIsMobile ? 'true' : 'false' ?>;
   try {
     i18n.init(<?= json_encode([
       'lng' => $config->defaultLanguage,
@@ -680,29 +717,4 @@ window.contestsRoot = <?= json_encode(upgrade_url($config->teacherInterface->sAb
 window.ieMode = true;
 </script>
 <![endif]-->
-<script type="text/javascript">
-  var browser_support = true;
-  if (/Firefox[\/\s](\d+\.\d+)/.test(navigator.userAgent)) {
-    var ffversion=new Number(RegExp.$1);
-    if (ffversion<3.6) var browser_support = false;
-  }
-  else if (/Chrome[\/\s](\d+\.\d+)/.test(navigator.userAgent)) {
-    var chversion=new Number(RegExp.$1);
-    if (chversion<5) var browser_support = false;
-  }
-  else if (/Safari[\/\s](\d+\.\d+)/.test(navigator.userAgent)) {
-    var sfversion=new Number(RegExp.$1);
-    if (sfversion<3) var browser_support = false;
-  }
-  else if (navigator.userAgent.indexOf('MSIE') != -1) {
-    var detectIEregexp = /MSIE (\d+\.\d+);/;
-    if (detectIEregexp.test(navigator.userAgent)){
-      var ieversion=new Number(RegExp.$1);
-      if (ieversion<8) var browser_support = false;
-    }
-  }
-  if (browser_support) {
-    $('#browserAlert').hide();
-  }
-</script>
 </body></html>

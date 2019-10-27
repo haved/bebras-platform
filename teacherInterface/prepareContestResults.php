@@ -32,13 +32,13 @@ if (isset($_GET["password"])) {
    if (md5($_GET["password"]) == $config->teacherInterface->genericPasswordMd5) {
       $_SESSION["isAdmin"] = true;
    } else {
-      echo "Invalid password";
+      echo translate("invalid_password");
       exit;
    }
 }
 
 if (!isset($_SESSION["isAdmin"]) || !$_SESSION["isAdmin"]) {
-   echo "This page is for admins only.";
+   echo translate("admin_restricted");
    exit;
 }
 
@@ -221,14 +221,25 @@ if ($action == "showStats") {
 
 echo "<h3><a href='".$startUrl."&action=fixSubgroups'>Fix subgroups</a></h3>";
 if ($action == "fixSubgroups") {
-   execQueryAndShowNbRows("Mark groups startTime if subgroup has startTime", "
-      UPDATE `group` gchild
-      JOIN `group` gparent ON gchild.parentGroupID = gparent.ID
-      JOIN `contest` ON `gparent`.contestID = contest.ID
-      SET gparent.startTime = gchild.startTime
+   execQueryAndShowNbRows("Mark groups startTime if subgroup has startTime, sum teams and contestants", "
+      UPDATE `group` gparent
+      JOIN 
+      (SELECT
+      gchild.parentGroupID,
+      MIN(gchild.startTime) AS startTime,
+      SUM(gchild.nbTeamsEffective) AS nbTeamsEffective,
+      SUM(gchild.nbStudentsEffective) AS nbStudentsEffective
+      FROM `group` gchild      
+      JOIN `contest` ON `gchild`.contestID = contest.ID
       WHERE (contest.ID = :contestID OR contest.parentContestID = :contestID)
-      AND gparent.startTime IS NULL
-      AND gchild.startTime IS NOT NULL",
+      AND gchild.parentGroupID IS NOT NULL
+      GROUP BY gchild.parentGroupID
+      ) gchild
+      ON gchild.parentGroupID = gparent.ID
+      SET gparent.startTime = gchild.startTime,
+      gparent.nbTeamsEffective = gchild.nbTeamsEffective,
+      gparent.nbStudentsEffective = gchild.nbStudentsEffective
+      ",
       array("contestID" => $contestID));
 
 //   TODO : somme des students des enfants dans le parent ?
@@ -427,6 +438,8 @@ if ($action == "resetIsOfficial") {
       array("contestID" => $contestID));
 }
       
+echo "<p>TODO: the first time, make sure teamp participationType is null  and score of all teams are set to NULL.</p>";
+      
 echo "<h3><a href='".$startUrl."&action=setTeamParticipationType'>Set team participation type to group participationType</a></h3>";
 if ($action == "setTeamParticipationType") { 
       
@@ -556,6 +569,20 @@ if ($action == "markRecomputeScoresGroups") {
 }
 */
 
+echo "<h3><a href='".$startUrl."&action=markWithRecoveed'>Mark teams with recorvered answer be recomputed</a></h3>";
+if ($action == "markWithRecoveed") {
+   execQueryAndShowNbRows("Set scores to recompute if team has recovered answers", "
+      UPDATE team_question
+      JOIN team_question_recover ON team_question.teamID = team_question_recover.teamID
+         AND team_question.questionID = team_question_recover.questionID
+      JOIN `team` ON `team`.ID = team_question.teamID
+      JOIN contest ON team.contestID = contest.ID
+      SET team_question.score = NULL
+      WHERE (contest.ID = :contestID OR contest.parentContestID = :contestID)
+      AND team_question.score = -1
+      AND team.score IS NULL",
+      array("contestID" => $contestID));
+}
 
 
 echo "<h3><a href='".$startUrl."&action=markAboveMinScore'>Mark teams above threshold to be recomputed</a></h3>";
@@ -765,43 +792,63 @@ if ($action == "detectDuplicates") {
    execQueryAndShowNbRows("Detect and store duplicate contestants", "
       INSERT IGNORE INTO duplicate_contestants (contestant1ID, contestant2ID)
       SELECT ID, duplicateID FROM (
-         SELECT `contestant`.ID,
-         @duplicateContestantID := IF(@prevFirstName=`contestant`.firstName AND @prevLastName = `contestant`.lastName AND @prevSchoolID = `contestant`.cached_schoolID AND @prevCategoryColor = `contest`.`categoryColor`, @prevID, NULL) AS duplicateID, 
-         @prevFirstName := contestant.firstName,
-         @prevLastName := contestant.lastName,
-         @prevSchoolID := contestant.cached_schoolID,
-         @prevCategoryColor := contest.categoryColor,
-         @prevID := contestant.ID
-         FROM contestant
+         SELECT `conts`.ID,
+         @duplicateContestantID := IF(@prevFirstName=`conts`.firstName AND @prevLastName = `conts`.lastName AND @prevSchoolID = `conts`.cached_schoolID AND (`conts`.`categoryColor` IS NULL OR @prevCategoryColor = `conts`.`categoryColor`), @prevID, NULL) AS duplicateID, 
+         @prevFirstName := conts.firstName,
+         @prevLastName := conts.lastName,
+         @prevSchoolID := conts.cached_schoolID,
+         @prevCategoryColor := conts.categoryColor,
+         @prevID := conts.ID
+         FROM
+         (SELECT contestant.*, contest.categoryColor FROM 
+         contestant
          JOIN `team` ON contestant.teamID = team.ID
          JOIN `group` ON `team`.groupID = `group`.`ID`
          JOIN `contest` ON `group`.contestID = contest.ID
          WHERE (contest.ID = :contestID OR contest.parentContestID = :contestID)
-         AND team.score IS NULL
          AND tmpIsOfficial = 1
-         ORDER BY contestant.cached_schoolID DESC , contestant.firstName DESC , contestant.lastName DESC, contest.categoryColor DESC
-      ) tmp WHERE duplicateID IS NOT NULL",
+         ORDER BY contestant.cached_schoolID DESC , contestant.firstName DESC , contestant.lastName DESC, contest.categoryColor DESC) conts,
+         (
+            SELECT
+            @prevFirstName := 0,
+            @prevLastName := 0,
+            @prevSchoolID := 0,
+            @prevCategoryColor := 0,
+            @prevID := 0,
+            @num := 0
+         ) tmp1
+         ) tmp2  WHERE duplicateID IS NOT NULL",
       array("contestID" => $contestID));
          
    execQueryAndShowNbRows("Detect and store duplicate contestants (reverse order)", "
       INSERT IGNORE INTO duplicate_contestants (contestant1ID, contestant2ID)
       SELECT ID, duplicateID FROM (
-         SELECT `contestant`.ID,
-         @duplicateContestantID := IF(@prevFirstName=`contestant`.firstName AND @prevLastName = `contestant`.lastName AND @prevSchoolID = `contestant`.cached_schoolID AND @prevCategoryColor = `contest`.`categoryColor`, @prevID, NULL) AS duplicateID, 
-         @prevFirstName := contestant.firstName,
-         @prevLastName := contestant.lastName,
-         @prevSchoolID := contestant.cached_schoolID,
-         @prevCategoryColor := contest.categoryColor,
-         @prevID := contestant.ID
-         FROM contestant
+         SELECT `conts`.ID,
+         @duplicateContestantID := IF(@prevFirstName=`conts`.firstName AND @prevLastName = `conts`.lastName AND @prevSchoolID = `conts`.cached_schoolID AND (`conts`.`categoryColor` IS NULL OR @prevCategoryColor = `conts`.`categoryColor`), @prevID, NULL) AS duplicateID, 
+         @prevFirstName := conts.firstName,
+         @prevLastName := conts.lastName,
+         @prevSchoolID := conts.cached_schoolID,
+         @prevCategoryColor := conts.categoryColor,
+         @prevID := conts.ID
+         FROM
+         (SELECT contestant.*, contest.categoryColor FROM 
+         contestant
          JOIN `team` ON contestant.teamID = team.ID
          JOIN `group` ON `team`.groupID = `group`.`ID`
          JOIN `contest` ON `group`.contestID = contest.ID
          WHERE (contest.ID = :contestID OR contest.parentContestID = :contestID)
-         AND team.score IS NULL
          AND tmpIsOfficial = 1
-         ORDER BY contestant.cached_schoolID ASC, contestant.firstName ASC, contestant.lastName ASC, contest.categoryColor ASC
-         ) tmp WHERE duplicateID IS NOT NULL",
+         ORDER BY contestant.cached_schoolID ASC , contestant.firstName ASC , contestant.lastName ASC, contest.categoryColor ASC) conts,
+         (
+            SELECT
+            @prevFirstName := 0,
+            @prevLastName := 0,
+            @prevSchoolID := 0,
+            @prevCategoryColor := 0,
+            @prevID := 0,
+            @num := 0
+         ) tmp1
+         ) tmp2  WHERE duplicateID IS NOT NULL",
       array("contestID" => $contestID));
 
    execQueryAndShowNbRows("Mark duplicate contestants types as former vs latter 1/4", "
@@ -909,7 +956,7 @@ if ($action == "removeFailed") {
       AND team.groupID != :discardedGroupID",
       array("contestID" => $contestID, "discardedGroupID" => $discardedGroupID));
 
-   execQueryAndShowNbRows("Save original group of failed participations", "
+   execQueryAndShowNbRows("Move failed participations to discard group", "
       # on les déplace dans le groupe spécial
       UPDATE team
       JOIN `group` ON `team`.`groupID` = `group`.ID
@@ -1055,6 +1102,18 @@ echo "<p>In the database: set contest.printCode, contest.showResults, and contes
 
 echo "<p>To allocate algoreaCodes, insert records such as INSERT INTO award_threshold (contestID, gradeID, awardID, nbContestants, minScore) VALUES ([contestID], 4, 1, 2, 0) for each contest</p>";
 
+echo "<h3><a href='".$startUrl."&action=cleanRanksUnofficial'>Remove ranks of unofficial participants.</a></h3>";
+if ($action == "cleanRanksUnofficial") {
+   execSelectAndShowResults("Remove ranks of unofficial participants", "
+      UPDATE contestant
+      JOIN team ON contestant.teamID = team.ID
+      JOIN `group` ON team.groupID = `group`.ID
+      JOIN `contest` ON `group`.contestID = contest.ID
+      SET rank = NULL, schoolRank = NULL
+      WHERE team.participationType = 'Unofficial'
+      AND (contest.ID = :contestID OR contest.parentContestID = :contestID)",
+      array("contestID" => $contestID));
+}
 
 echo "<h3><a href='".$startUrl."&action=studyZeroes'>Study cases of teams with 0 points.</a></h3>";
 if ($action == "studyZeroes") {
@@ -1182,11 +1241,13 @@ if ($action == "makeGroupOfficial") {
    
    execSelectAndShowResults("Show the teams and students in this group", "
       SELECT contest.name, `group`.name, `user`.officialEmail, `user`.alternativeEmail,
-      GROUP_CONCAT(CONCAT(contestant.firstName, ' ', contestant.lastName, '(', contestant.grade, ')', contestant.algoreaCode)),
-      team.score, team.rank
+      GROUP_CONCAT(CONCAT(contestant.firstName, ' ', contestant.lastName, '(', contestant.grade, ')', IFNULL(contestant.algoreaCode,''))),
+      team.score, contestant.rank
       FROM `group`
       JOIN `team`  ON `team`.groupID = `group`.ID
       JOIN `contestant` ON `contestant`.teamID = team.ID
+      JOIN `contest` ON `group`.contestID = `contest`.ID
+      JOIN `user` ON `group`.userID = user.ID
       WHERE `group`.`code` = :groupCode
       GROUP BY contestant.ID",
       array("groupCode" => $groupCode));
@@ -1201,7 +1262,7 @@ if ($action == "makeGroupOfficial") {
       execQueryAndShowNbRows("Make teams official", "
          UPDATE `group`
          JOIN `team` ON `team`.`groupID` = `group`.`ID`
-         SET `team``participationType` = 'Official'
+         SET `team`.`participationType` = 'Official'
          WHERE `group`.`code` = :groupCode",
          array("groupCode" => $groupCode));
          
@@ -1209,7 +1270,7 @@ if ($action == "makeGroupOfficial") {
    }
 }
 
-echo "<h3><a href='".$startUrl."&action=mergeStudents'>Merge students with same name, grade, user and school</a></h3>";
+echo "<h3><a href='".$startUrl."&action=mergeStudents'>Merge students with same name, grade, user and school (official participations only)</a></h3>";
 if ($action == "mergeStudents") {
 
       execQueryAndShowNbRows("Attach students with no registrationID to identical registered students", "
@@ -1223,7 +1284,8 @@ if ($action == "mergeStudents") {
          AND contestant.lastName = algorea_registration.lastName
          AND contestant.grade = algorea_registration.grade
          SET contestant.registrationID = algorea_registration.ID
-         WHERE contestant.registrationID IS NULL",
+         WHERE contestant.registrationID IS NULL
+         AND team.participationType = 'Official'",
          array());
 }
 
@@ -1247,8 +1309,9 @@ if ($action == "newRegistrations") {
       execQueryAndShowNbRows("Attach newly created registrations to corresponding students", "
          UPDATE contestant
          JOIN algorea_registration ON contestant.ID = algorea_registration.ID
-         SET contestant.registrationID = algorea_registration.ID
-         WHERE contestant.registrationID IS NULL",
+         SET contestant.registrationID = algorea_registration.ID,
+         contestant.algoreaCode = algorea_registration.code
+         WHERE contestant.registrationID IS NULL OR contestant.algoreaCode IS NULL;",
       array());
 }
 
@@ -1318,8 +1381,8 @@ if ($action == "updateCategories") {
      array());
 }
 
-echo "<h3><a href='".$startUrl."&action=updateRegistrationCategory'>Update students best scores in each category</a></h3>";
-if ($action == "updateRegistrationCategory") {
+echo "<h3><a href='".$startUrl."&action=createRegistrationCategory'>Create records for each students best scores in each category</a></h3>";
+if ($action == "createRegistrationCategory") {
 
    execQueryAndShowNbRows("Create records for white category", 
       "INSERT IGNORE INTO registration_category (registrationID, category) SELECT ID, 'blanche' FROM algorea_registration WHERE algorea_registration.category IN ('blanche', 'jaune', 'orange', 'verte', 'bleue')",
@@ -1336,6 +1399,10 @@ if ($action == "updateRegistrationCategory") {
    execQueryAndShowNbRows("Create records for green category", 
       "INSERT IGNORE INTO registration_category (registrationID, category) SELECT ID, 'verte' FROM algorea_registration WHERE algorea_registration.category IN ('verte', 'bleue')",
       array());
+}
+
+echo "<h3><a href='".$startUrl."&action=updateRegistrationCategory'>Update students best scores in each category</a></h3>";
+if ($action == "updateRegistrationCategory") {
 
    execQueryAndShowNbRows("Update best score for individual participations", 
       "UPDATE
@@ -1410,21 +1477,31 @@ if ($action == "updateRegistrationCategory") {
       JOIN registration_category ON tmp.ID = registration_category.ID
       SET registration_category.dateBestScoreTeam = tmp.maxTime",
       array());
+}
+
+echo "<h3><a href='".$startUrl."&action=computeAlgoreaTotalScore'>Compute algorea total scores</a></h3>";
+if ($action == "computeAlgoreaTotalScore") {
+      execQueryAndShowNbRows("Reset total Algorea score", 
+         "UPDATE algorea_registration
+         SET totalScoreAlgorea = 0",
+         array()
+      );
+
+      $categoryMinScore = array("blanche" => 0, "jaune" => 1000, "orange" => 2000, "verte" => 3000);
       
-   execQueryAndShowNbRows("Update total Algorea score", 
-      "   UPDATE algorea_registration
-      JOIN (
-      SELECT algorea_registration.ID, 
-       SUM(GREATEST(GREATEST(IFNULL(bestScoreIndividual, 0),
-                         IFNULL(bestScoreTeam, 0)),
-                IF(algorea_registration.category != registration_category.category, 160, 0))) as totalScore
-       FROM algorea_registration
-       JOIN registration_category
-       ON algorea_registration.ID = registration_category.registrationID
-       GROUP BY algorea_registration.ID
-       ) tmp ON tmp.ID = algorea_registration.ID
-      SET algorea_registration.totalScoreAlgorea = tmp.totalScore",
-      array());
+      foreach ($categoryMinScore as $category => $minScore) {
+         execQueryAndShowNbRows("Update total Algorea score", 
+            "UPDATE algorea_registration
+            JOIN registration_category
+            ON algorea_registration.ID = registration_category.registrationID
+            SET totalScoreAlgorea = 
+               ".$minScore." + GREATEST(IFNULL(bestScoreIndividual, 0), IFNULL(bestScoreTeam, 0))
+            WHERE registration_category.category = '".$category."'
+            AND (bestScoreIndividual > 0 OR bestScoreTeam > 0)
+            ",
+            array()
+         );
+      }
 }
 
 
@@ -1496,13 +1573,9 @@ if ($action == "updateAlgoreaRanks") {
           SET `c1`.`algoreaSchoolRank` = `c2`.`algoreaSchoolRank` 
           WHERE `c1`.`ID` = `c2`.`ID`",
           array());
+          
+          
+   execQueryAndShowNbRows("Remove ranks when total Algorea score is 0", 
+     "UPDATE algorea_registration SET algoreaRank = NULL, algoreaSchoolRank = NULL WHERE totalScoreAlgorea = 0" ,
+        array());
 }
-
-
-
-/*
-Tool to make some groups official
-
-UPDATE `group` SET participationType = 'Official' WHERE code IN ('#vypsrd5r', 'kdmr36y6', 'Uxhfagua', '#Uxhfagua', 'vypsrd5r');
-UPDATE `group` JOIN team ON team.groupID = `group`.ID SET team.participationType = 'Official' WHERE code IN ('#vypsrd5r', 'kdmr36y6', 'Uxhfagua', '#Uxhfagua', 'vypsrd5r');
-*/

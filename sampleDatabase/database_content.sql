@@ -1002,4 +1002,32 @@ INSERT INTO `question` (`ID`, `key`, `folder`, `path`, `name`, `answerType`, `ex
 INSERT INTO `synchro_version` (`iVersion`) VALUES
 (316);
 
+
+INSERT INTO `contest_question` (`ID`, `contestID`, `questionID`, `minScore`, `noAnswerScore`, `maxScore`, `options`, `order`, `iVersion`) VALUES
+(238963032141893485, 56, 245, 0, 0, 40, '{}', 0, 179113),
+(349854984303036387, 56, 246, 0, 0, 40, '{}', 0, 179113),
+(354578674539627470, 56, 247, 0, 0, 40, '{}', 1, 179113),
+(427936432785500825, 56, 249, 0, 0, 40, '{}', 1, 179113),
+(463329819560376265, 56, 250, 0, 0, 40, '{}', 5, 179113),
+(497169913936939395, 56, 251, 0, 0, 40, '{}', 4, 179113),
+(576754755627859240, 56, 252, 0, 0, 40, '{}', 2, 179113),
+(706406912851540259, 56, 253, 0, 0, 40, '{}', 3, 179113),
+(763982851525543100, 56, 254, 0, 0, 40, '{}', 6, 179113),
+(782102108609441581, 56, 255, 0, 0, 40, '{}', 0, 179113),
+(838844902889092117, 56, 256, 0, 0, 40, '{}', 1, 179113),
+(958506436293696789, 56, 259, 0, 0, 40, '{}', 1, 179113);
+
+ALTER TABLE `group` CHANGE `minCategory` `minCategory` VARCHAR(30) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL DEFAULT '';
+ALTER TABLE `group` CHANGE `maxCategory` `maxCategory` VARCHAR(30) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL DEFAULT '';
+ALTER TABLE `group` CHANGE `language` `language` VARCHAR(30) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL DEFAULT 'fr';
+
+INSERT INTO `group` (`ID`, `schoolID`, `grade`, `gradeDetail`, `userID`, `name`, `nbStudents`, `nbTeamsEffective`, `nbStudentsEffective`, `contestID`, `minCategory`, `maxCategory`, `language`, `parentGroupID`, `code`, `password`, `expectedStartTime`, `startTime`, `noticePrinted`, `isPublic`, `isGenerated`, `bRecovered`, `participationType`, `iVersion`) VALUES
+(796142003655934888, 1358, 12, '', 1201, 'Castor 2015 : tous les niveaux', 100000, 8522, 8523, 56, '', '', '', NULL, 'yft7zkqt', 'zfvaxswk', '2015-12-10 22:00:00', '2018-09-27 13:52:33', 0, 1, 0, 0, 'Unofficial', 261357)
+
+
+INSERT INTO `algorea_registration` (`ID`, `firstName`, `lastName`, `genre`, `email`, `zipCode`, `grade`, `studentID`, `category`, `validatedCategory`, `schoolID`, `userID`, `code`, `contestantID`, `franceioiID`) VALUES
+(1, 'Mat', 'Mat', 2, '', '', 0, '', '', '', 1, 1, 'c42', NULL, NULL);
+
+UPDATE `group` SET isPublic = 0, startTime = '2020-01-01 00:00' WHERE ID = 796142003655934888
+
 COMMIT;

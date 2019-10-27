@@ -188,6 +188,7 @@ $tablesModels = array (
          "startTime" => array("type" => "date", "access" => array("write" => array("admin"), "read" => array("admin"))),
          "endTime" => array("type" => "date"),
          "nbMinutes" => array("type" => "int", "access" => array("write" => array("admin"), "read" => array("admin"))),
+         "extraMinutes" => array("type" => "int", "access" => array("write" => array("admin"), "read" => array("admin"))),
          "score" => array("type" => "int", "access" => array("write" => array("admin"), "read" => array("admin"))),
          "participationType" => array("type" => "string", "access" => array("write" => array("user"), "read" => array("user")))
       ),
@@ -317,7 +318,7 @@ $viewsModels = array(
          "city" => array("tableName" => "school"),
          "name" => array("tableName" => "school"),
          "algoreaCode" => array("tableName" => "contestant"),
-         "algoreaCategory" => array("tableName" => "contestant"),
+         "algoreaCategory" => array("tableName" => "algorea_registration", "fieldName" => "category"),
          "franceioiID" => array("tableName" => "algorea_registration"),
          "groupName" => array("tableName" => "full_groups", "fieldName" => "name")
       ),
@@ -367,7 +368,9 @@ $viewsModels = array(
       "joins" => array(
          "team" => array("srcTable" => "contestant", "srcField" => "teamID", "dstField" => "ID"),
          "full_groups" => array("srcTable" => "team", "srcField" => "groupID", "dstField" => "ID"),
+         "school" => array("srcTable" => "full_groups", "srcField" => "schoolID", "dstField" => "ID"),
          "contest" => array("srcTable" => "full_groups", "srcField" => "contestID", "dstField" => "ID"),
+         "algorea_registration" => array("type" => "LEFT", "srcTable" => "contestant", "srcField" => "registrationID", "dstField" => "ID")
       ),
       "fields" => array(
          "schoolID" => array("tableName" => "full_groups", "access" => array("write" => array(), "read" => array("user")), "groupBy" => "`contestant`.`ID`"),
@@ -381,14 +384,16 @@ $viewsModels = array(
          "score" => array("tableName" => "team"),
          "nbContestants" => array("tableName" => "team"),
          "rank" => array(),
+         "category" => array("tableName" => "algorea_registration", "fieldName" => "category", "type" => "string"),
          "email" => array(),
          "zipCode" => array(),
          "studentId" => array(),
-         "level" => array("tableName" => "contest"),
-         "algoreaCode" => array(),
          "schoolRank" => array(),
          "userID" => array("tableName" => "full_groups"),
          "groupID" => array("tableName" => "team"),
+         "qualificationCode" => array("fieldName" => "algoreaCode"),
+         "groupName" => array("tableName" => "full_groups", "fieldName" => "name"),         
+         "schoolName" => array("tableName" => "school", "fieldName" => "name"),         
       ),
       "filters" => array(
          "groupField" => $fieldGroupFilter,
@@ -400,7 +405,15 @@ $viewsModels = array(
          "schoolID" => array("joins" => array("full_groups"), "condition" => "`full_groups`.`schoolID` = :schoolID"),
          "userID" => array("joins" => array("full_groups"), "condition" => "(`full_groups`.`userID` = :userID OR `full_groups`.`targetUserID` = :userID)"),
          "ownerUserID" => array("joins" => array("full_groups"), "condition" => "`full_groups`.`userID` = :[PREFIX_FIELD]ownerUserID"),
+         "awarded" => array("joins" => array("team", "algorea_registration"), "ignoreValue" => true, "condition" => "(`[PREFIX]team`.`participationType` = 'Official' and `[PREFIX]algorea_registration`.`code` is not null)"),
+         "printable" => array("joins" => array("contest"), "condition" => "`[PREFIX]contest`.`printCodes` = 1", "ignoreValue" => true)
       ),
+      'orders' => array(
+         array('field' => 'contestID'),
+         array('field' => 'groupField'),
+         array('field' => 'lastName'),
+         array('field' => 'firstName'),
+      )
    ),
    
    "contestantCSV" => array(
@@ -409,9 +422,10 @@ $viewsModels = array(
       "joins" => array(
          "team" => array("srcTable" => "contestant", "srcField" => "teamID", "dstField" => "ID"),
          "full_groups" => array("srcTable" => "team", "srcField" => "groupID", "dstField" => "ID"),
-         "contest" => array("srcTable" => "group", "srcField" => "contestID", "dstField" => "ID"),
-         "school" => array("srcTable" => "group", "srcField" => "schoolID", "dstField" => "ID"),
+         "contest" => array("srcTable" => "full_groups", "srcField" => "contestID", "dstField" => "ID"),
+         "school" => array("srcTable" => "full_groups", "srcField" => "schoolID", "dstField" => "ID"),
          "grade" => array("srcTable" => "contestant", "srcField" => "grade", "dstField" => "ID"),
+         "algorea_registration" => array("type" => "LEFT", "srcTable" => "contestant", "srcField" => "ID", "dstField" => "contestantID")
       ),
       "fields" => array(
          "schoolID" => array("tableName" => "full_groups", "access" => array("write" => array(), "read" => array("user")), "groupBy" => "`contestant`.`ID`"),
@@ -419,7 +433,7 @@ $viewsModels = array(
          "grade" => array("tableName" => "full_groups"),
          "contestID" => array("tableName" => "full_groups", "access" => array("write" => array(), "read" => array("user"))),
          "contestName" => array("tableName" => "contest", "fieldName" => "name"),
-         "full_groupsName" => array("tableName" => "group", "fieldName" => "name"),
+         "full_groupsName" => array("tableName" => "full_groups", "fieldName" => "name"),
          "saniValid" => array(),
          "firstName" => array(),
          "lastName" => array(),
@@ -430,6 +444,7 @@ $viewsModels = array(
          "nbContestants" => array("tableName" => "team"),
          "rank" => array(),
          "qualificationCode" => array("fieldName" => "algoreaCode"),
+         "category" => array("tableName" => "algorea_registration", "fieldName" => "category", "type" => "string"),
          "email" => array(),
          "zipCode" => array(),
       ),
@@ -495,6 +510,7 @@ $viewsModels = array(
          "nbStudents" => array(),
          "userID" => array("fieldName" => "userID", "tableName" => "group"),
          "contestPrintCertificates" => array("fieldName" => "printCertificates", "tableName" => "contest"),
+         "contestPrintCodes" => array("fieldName" => "printCodes", "tableName" => "contest"),
          "minCategory" => array(),
          "maxCategory" => array(),
          "language" => array()
@@ -520,6 +536,10 @@ $viewsModels = array(
             "joins" => array("user_user"),
             "condition" => "((`[PREFIX]user_user`.`accessType` <> 'none' AND `[PREFIX]user_user`.`targetUserID` = :[PREFIX_FIELD]checkAccessUserID) ".
                            "OR (`[PREFIX]group`.`userID` = :[PREFIX_FIELD]checkAccessUserID))"
+         ),
+         "checkNoChild" => array(
+            "condition" => "(`[PREFIX]group`.`parentGroupID` IS NULL)",
+            "ignoreValue" => true
          )
       )
    ),

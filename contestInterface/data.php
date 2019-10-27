@@ -360,7 +360,8 @@ function handleCheckPassword($db) {
 
 function getRegistrationData($db, $code) {
    $query = "SELECT `algorea_registration`.`ID`, `code`, `category` as `qualifiedCategory`, `validatedCategory`, `firstName`, `lastName`, `genre`, `grade`, `studentID`, `email`, `zipCode`, ".
-      "IFNULL(`algorea_registration`.`schoolID`, 0) as `schoolID`, IFNULL(`algorea_registration`.  `userID`, 0) as `userID`, IFNULL(`school_user`.`allowContestAtHome`, 1) as `allowContestAtHome` ".
+      "IFNULL(`algorea_registration`.`schoolID`, 0) as `schoolID`, IFNULL(`algorea_registration`.  `userID`, 0) as `userID`, IFNULL(`school_user`.`allowContestAtHome`, 1) as `allowContestAtHome`,
+      `round` ".
       "FROM `algorea_registration` ".
       "LEFT JOIN `school_user` ON (`school_user`.`schoolID` = `algorea_registration`.`schoolID` AND `school_user`.`userID` = `algorea_registration`.`userID`) ".
       "WHERE `code` = :code";
@@ -389,6 +390,7 @@ function createGroupForContestAndRegistrationCode($db, $code, $contestID) {
 }
 
 function handleGroupFromRegistrationCode($db, $code) {
+   global $config;
    $registrationData = getRegistrationData($db, $code);
    if (!$registrationData) {
       return;
@@ -426,9 +428,15 @@ function handleGroupFromRegistrationCode($db, $code) {
    addBackendHint("ClientIP.checkPassword:pass");
    addBackendHint(sprintf("Group(%s):checkPassword", escapeHttpValue($registrationData->ID))); // TODO : check hint
    $contestID = "485926402649945250"; // hard-coded training contest
+   if (isset($config->trainingContestID)) {
+      $contestID = $config->trainingContestID;
+   }
    $isOfficialContest = false;
    if (isset($_POST["startOfficial"])) {
-      $contestID = "404363140821714044"; // hard-coded real contest
+      $contestID = "288404405033703401"; // hard-coded real contest
+      if (isset($config->currentContestID)) {
+         $contestID = $config->currentContestID;
+      }
       $isOfficialContest = true;
    }
    if (isset($_SERVER['HTTP_HOST']) && ($_SERVER['HTTP_HOST'] == "chticode.algorea.org")) {
@@ -459,7 +467,7 @@ function handleCheckGroupPassword($db, $password, $getTeams, $extraMessage = "",
       // No such group.
       return;
    }
-   if ($row->open != "Open") {
+   if (($row->open != "Open") && ($row->schoolID != 9999999999)) { // temporary hack to allow test groups
       $messages = array("fr" => "Le concours de ce groupe n'est pas ouvert.",
          "en" => "The contest associated with this group is not open",
          "ar" => "المسابقة لم تبدأ بعد"
@@ -715,7 +723,8 @@ function handleGetConfig() {
    $clientConfig = array(
       "imagesURLReplacements" => $config->imagesURLReplacements,
       "imagesURLReplacementsNonStatic" => $config->imagesURLReplacementsNonStatic,
-      "upgradeToHTTPS" => $config->upgradeToHTTPS
+      "upgradeToHTTPS" => $config->upgradeToHTTPS,
+      "logActivity" => $config->contestInterface->logActivity
       );
    exitWithJson(["success" => true, "config" => $clientConfig]);
 }

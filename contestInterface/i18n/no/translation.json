@@ -15,7 +15,7 @@
     "tab_start_contest_enter_code": "Skriv in gruppekoden som du får fra læreren: ",
     "tab_start_contest_start_button": "Start konkurransen",
     "tab_public_contests_info": "Prøv deg selv på en av konkurransene under.",
-    "tab_public_contests_score_explanation": "Din poengsum vil bli gitt etter at de har blitt evaluert.",
+    "tab_public_contests_score_explanation": "<a href='index.php?team=5b3feen6' style='color: black'><p style=' font-weight: bold; font-size: 120%'>NIO Runde 1 2018/2019</p></a>",
     "tab_public_contests_organization": "",
     "tab_view_results_access_code": "Oppgi tilgangskoden som du fikk da du begynte på konkurransen:",
     "tab_view_results_view_results_button": "Dine resultater",

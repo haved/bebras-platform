@@ -285,6 +285,9 @@ function handleLoadSession() {
    if ($config->defaultLanguage == "en") {
       $message = "Would you like to continue the participation that was started?";
    }
+   if ($config->defaultLanguage == "no") {
+      $message = "Har du lyst på å fortsette på konkurransen du har begynt på?";
+   }
    exitWithJson(array(
       "success" => true,
       "teamID" => $_SESSION["teamID"],

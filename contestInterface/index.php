@@ -1,6 +1,7 @@
 <?php
   include(__DIR__.'/config.php');
   header('Content-type: text/html');
+  header('X-Backend-Hints: "ClientIP.loadIndex"');
 ?><!DOCTYPE html>
 <html>
 <head>
@@ -8,10 +9,79 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <link rel="shortcut icon" href="<?= $config->faviconfile ?>" />
 <title data-i18n="general_page_title"></title>
-<?php stylesheet_tag('/style.css'); ?>
-</head><body>
+<?php
+  script_tag('/bower_components/jquery/jquery.min.js');
+?>
+<script type="text/javascript">
+  window.contestsRoot = <?= json_encode(upgrade_url($config->teacherInterface->sAbsoluteStaticPath.'/contests')) ?>;
+  window.sAbsoluteStaticPath = <?= json_encode(upgrade_url($config->teacherInterface->sAbsoluteStaticPath.'/')) ?>;
+  window.sAssetsStaticPath = <?= json_encode(upgrade_url($config->teacherInterface->sAssetsStaticPath.'/')) ?>;
+  window.timestamp = <?= $config->timestamp ?>;
+  window.config = <?= json_encode([
+    "defaultLanguage" => $config->defaultLanguage,
+    "httpsTestUrl" => $config->contestInterface->httpsTestUrl,
+    "imagesURLReplacements" => $config->imagesURLReplacements,
+    "imagesURLReplacementsNonStatic" => $config->imagesURLReplacementsNonStatic,
+    "redirectToHTTPS" => !!$config->contestInterface->redirectToHTTPS,
+    "redirectToHTTPSIfError" => !!$config->redirectToHTTPSIfError,
+    "upgradeToHTTPS" => $config->upgradeToHTTPS,
+    "logActivity" => $config->contestInterface->logActivity
+    ]) ?>;
+
+  function displayBody() {
+    // Display the page
+    var body = document.getElementsByTagName("body");
+    if(body && body[0]) {
+      body[0].style.display = "block";
+    } else {
+      setTimeout(displayBody, 100);
+    }
+  }
+  function checkHttps() {
+    // Test HTTPS connectivity, downgrade to HTTP if HTTPS doesn't work
+    try {
+      if(!window.config.httpsTestUrl) {
+        displayBody();
+        return;
+      }
+      if(!window.config.redirectToHTTPS || window.location.protocol == 'https:') {
+        displayBody();
+      }
+      $.ajax({
+        url: window.config.httpsTestUrl,
+        timeout: 2000
+        })
+        .success(function() {
+          if(window.config.redirectToHTTPS && window.location.protocol != 'https:') {
+            window.location.href = 'https:' + window.location.href.substring(window.location.protocol.length);
+          }
+        })
+        .fail(function() {
+          window.config.downgradeToHTTP = true;
+          displayBody();
+        });
+    } catch(e) {
+      displayBody();
+    }
+  }
+  checkHttps();
+
+  // Failsafe to display the body after 2 seconds even if checkHttps somehow
+  // had an error
+  setTimeout(displayBody, 2000);
+</script>
+</head>
+<?php
+  flush();
+  stylesheet_tag('/style.css');
+  if ($config->defaultLanguage == "ar") {
+     stylesheet_tag('/style_rtl.css');
+  }
+?>
+<body style="display: none;">
 <div id="divHeader">
   <div id="leftTitle" data-i18n="[html]left_title"></div>
+  <div id="rightTitle" data-i18n="[html]right_title"></div>
   <div id="headerGroup">
     <h1 id="headerH1" data-i18n="general_title"></h1>
     <h2 id="headerH2" data-i18n="general_subtitle"></h2>
@@ -30,6 +100,7 @@ if($config->contestInterface->browserCheck) {
   if($config->contestInterface->browserCheck == 'bebras-platform') {
     $browserVerified = $browser->isBrowser('Firefox', '>=', '3.6') ||
          $browser->isBrowser('Chrome', '>=', '5') ||
+         $browser->isBrowser('Chromium', '>=', '5') ||
          $browser->isBrowser('Silk', '>=', '5') ||
          $browser->isBrowser('Safari', '>=', '9') ||
          $browser->isBrowser('Internet Explorer', '>=', '8') ||
@@ -37,15 +108,17 @@ if($config->contestInterface->browserCheck) {
   } elseif($config->contestInterface->browserCheck == 'quickAlgo') {
     $browserVerified = $browser->isBrowser('Firefox', '>=', '43') ||
          $browser->isBrowser('Chrome', '>=', '35') ||
+         $browser->isBrowser('Chromium', '>=', '35') ||
          $browser->isBrowser('Silk', '>=', '35') ||
          $browser->isBrowser('Safari', '>=', '9') ||
          $browser->isBrowser('Edge', '>=', '12');
   }
   $browserOld = $browser->isBrowser('Firefox', '<', '60') ||
                 $browser->isBrowser('Chrome', '<', '64') ||
+                $browser->isBrowser('Chromium', '<', '64') ||
                 $browser->isBrowser('Silk', '<', '64') ||
                 $browser->isBrowser('Safari', '<', '9') ||
-                $browser->isBrowser('Edge', '<', '41') ||
+                $browser->isBrowser('Edge', '<', '17') ||
                 $browser->isBrowser('Internet Explorer');
 }
 
@@ -284,7 +357,7 @@ $browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
         </td>
         <td class="languageSelector selectorTitle" data-language="blockly"><button type="button" class="btn btn-default" data-i18n="language_blockly"></button></td>
         <td class="languageSelector" data-language="blockly">
-          <img src="images/blockly.png" alt="exemple d'utilisation de Blockly">
+          <img src="<?= static_asset('/images/blockly.png') ?>" alt="exemple d'utilisation de Blockly">
         </td>
         <td class="languageSelector languageDescription" data-language="blockly" data-i18n="[html]language_blockly_description">
         </td>
@@ -295,7 +368,7 @@ $browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
         </td>
         <td class="languageSelector selectorTitle" data-language="scratch"><button type="button" class="btn btn-default" data-i18n="language_scratch"></button></td>
         <td class="languageSelector" data-language="scratch">
-          <img src="images/scratch.png" alt="exemple d'utilisation de Scratch">
+          <img src="<?= static_asset('/images/scratch.png') ?>" alt="exemple d'utilisation de Scratch">
         </td>
         <td class="languageSelector languageDescription" data-language="scratch" data-i18n="[html]language_scratch_description">
         </td>
@@ -306,7 +379,7 @@ $browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
         </td>
         <td class="languageSelector selectorTitle" data-language="python"><button type="button" class="btn btn-default" data-i18n="language_python"></button></td>
         <td class="languageSelector" data-language="python">
-          <img src="images/python.png" alt="exemple d'utilisation de Python">
+          <img src="<?= static_asset('/images/python.png') ?>" alt="exemple d'utilisation de Python">
         </td>
         <td class="languageSelector languageDescription" data-language="python" data-i18n="[html]language_python_description">
         </td>
@@ -334,7 +407,7 @@ $browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
 
     <div id="divLogin" style="display:none" class="dialog">
       <div class="login_box panel">
-        <div class="panel-head"><b data-i18n="login_teammate"></b><b> 1</b></div>
+        <div class="panel-head"><b data-i18n="login_teammate"></b><b id='teammateNumber1'> 1</b></div>
         <div class="panel-body">
           <div id="askRegistrationCode1">
             <span data-i18n="login_has_registrationCode"></span>
@@ -385,7 +458,12 @@ $browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
             </p>
             <p id="login-input-studentId-1">
               <span data-i18n="[html]login_input_studentId"></span>
-              <input id="studentId1" type="text" autocomplete="off" class="form-control" /></p>
+              <input id="studentId1" type="text" autocomplete="off" class="form-control" />
+            </p>
+            <p id="login-input-phoneNumber-1">
+              <span data-i18n="[html]login_input_phoneNumber"></span>
+              <input id="phoneNumber1" type="text" autocomplete="off" class="form-control" />
+            </p>
           </div>
         </div>
       </div>
@@ -440,7 +518,12 @@ $browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
               </select></p>
             <p id="login-input-studentId-2">
               <span data-i18n="[html]login_input_studentId"></span>
-              <input id="studentId2" type="text" autocomplete="off" class="form-control" /></p>
+              <input id="studentId2" type="text" autocomplete="off" class="form-control" />
+            </p>
+            <p id="login-input-phoneNumber-2">
+              <span data-i18n="[html]login_input_phoneNumber"></span>
+              <input id="phoneNumber2" type="text" autocomplete="off" class="form-control" />
+            </p>
           </div>
         </div>
       </div>
@@ -477,7 +560,7 @@ $browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
       <tr><td>Prénom :</td><td id="persoFirstName"></td></tr>
       <tr><td>Classe :</td><td id="persoGrade"></td></tr>
       <tr><td>Qualifié pour la catégorie :</td><td id="persoCategory"></td></tr>
-      <tr><td>Qualifié en demi-finale :</td><td id="persoSemifinal"></td></tr>      
+      <!--<tr><td>Qualifié en demi-finale :</td><td id="persoSemifinal"></td></tr>-->
    </table>
    </p>
    <p>   
@@ -525,7 +608,7 @@ $browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
       <div class="questionListHeader">
          <table class="chrono" width="95%">
             <tr class="header_time"><td class="fullFeedback" data-i18n="remaining_time"></td><td><span class='minutes'></span>:<span class='seconds'></span></td></tr>
-            <tr><td class="fullFeedback" data-i18n="current_score"></td><td><span class='scoreTotalFullFeedback'></span></td></tr>
+            <tr><td class="showTotalScore" data-i18n="current_score"></td><td><span class='scoreTotalFullFeedback'></span></td></tr>
          </table>
          <p></p>
          <div class="scoreBonus" style="display:none"><b data-i18n="questions_bonus"></b><br/></div>
@@ -555,7 +638,7 @@ $browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
          <table class="header_table">
             <tr>
                <td class="header_logo" data-i18n="[html]top_image_new"></td>
-               <td class="header_score"><span data-i18n="current_score"></span><br/><b><span class='scoreTotalFullFeedback'></span></b></td>
+               <td class="header_score showTotalScore"><span data-i18n="current_score"></span><br/><b><span class='scoreTotalFullFeedback'></span></b></td>
                <td class="header_time" id="header_time"><span data-i18n="remaining_time_long"></span> <br/><b><span class='minutes'></span>:<span class='seconds'></span></b></td>
                <td class="header_rank" style="display:none"><span data-i18n="rank"></span> <br/><b><span class="rank" width="95%"></span></b></td>
                <td class="header_button">
@@ -573,7 +656,7 @@ $browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
                <td class="headerAutoHeight_logo" data-i18n="[html]top_image_new"></td>
                <td class="headerAutoHeight_time"><b><span class='minutes'></span>:<span class='seconds'></span></b></td>
                <td class="headerAutoHeight_title"><span class="questionTitle" style="padding-right: 20px"></span><span id="questionStars"></span></td>
-               <td class="headerAutoHeight_score"><b><span class='scoreTotalFullFeedback'></span></b></td>
+               <td class="headerAutoHeight_score showTotalScore"><b><span class='scoreTotalFullFeedback'></span></b></td>
                <td class="headerAutoHeight_button">
                  <button class="button_return_list" type="button" data-i18n="return" onclick="backToList()" ></button>
                </td>
@@ -603,7 +686,7 @@ $browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
 </div>
 
 <div id="question-iframe-container" style="display:none" autocomplete="off">
-   <!--<div class="questionIframeLoading" data-i18n="questions_loading"></div>-->
+   <div class="questionIframeLoading" data-i18n="questions_loading"></div>
    <div class="newInterface questionIframeHeader">
       <span class="questionTitle" style="padding-right: 20px"></span><span id="questionIframeStars"></span>
    </div>
@@ -642,9 +725,6 @@ $browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
    <b data-i18n="error_server"></b> <p style="float:right;"><a href="#" onclick="$('#divError').hide()">[<span data-i18n="error_close"></span>]</a></p><br/>
    <span id="contentError"></span>
 </div>
-<?php
-  script_tag('/bower_components/jquery/jquery.min.js');
-?>
 <!--[if lte IE 9]>
   <?php
   // JSON3 shim for IE6-9 compatibility.
@@ -676,10 +756,6 @@ $browserIsMobile = $browser->isType('mobile', 'tablet', 'ereader');
       return uri + separator + key + "=" + value;
     }
   }
-  window.contestsRoot = <?= json_encode(upgrade_url($config->teacherInterface->sAbsoluteStaticPath.'/contests')) ?>;
-  window.sAbsoluteStaticPath = <?= json_encode(upgrade_url($config->teacherInterface->sAbsoluteStaticPath.'/')) ?>;
-  window.sAssetsStaticPath = <?= json_encode(upgrade_url($config->teacherInterface->sAssetsStaticPath.'/')) ?>;
-  window.timestamp = <?= $config->timestamp ?>;
   window.browserIsMobile = <?=$browserIsMobile ? 'true' : 'false' ?>;
   try {
     i18n.init(<?= json_encode([

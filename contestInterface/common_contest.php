@@ -72,20 +72,25 @@ function updateSessionWithContestInfos($row) {
    $_SESSION["contestVisibility"] = $row->visibility;
    $_SESSION["bonusScore"] = intval($row->bonusScore);
    $_SESSION["allowTeamsOfTwo"] = intval($row->allowTeamsOfTwo);
+   $_SESSION["groupsExpirationMinutes"] = intval($row->groupsExpirationMinutes);
    $_SESSION["askParticipationCode"] = intval($row->askParticipationCode);
    $_SESSION["newInterface"] = intval($row->newInterface);
    $_SESSION["customIntro"] = $row->customIntro;
    $_SESSION["fullFeedback"] = intval($row->fullFeedback);
+   $_SESSION["showTotalScore"] = intval($row->showTotalScore);
    $_SESSION["nbUnlockedTasksInitial"] = intval($row->nbUnlockedTasksInitial);
    $_SESSION["subsetsSize"] = intval($row->subsetsSize);
    $_SESSION["nextQuestionAuto"] = intval($row->nextQuestionAuto);
    $_SESSION["allowPauses"] = intval($row->allowPauses);
+   $_SESSION["headerImageURL"] = $row->headerImageURL;
+   $_SESSION["headerHTML"] = $row->headerHTML;
+   $_SESSION["logActivity"] = intval($row->logActivity);
 }
 
 function commonLoginTeam($db, $password) {
    global $tinyOrm, $config;
    $password = trim($password);
-   $stmt = $db->prepare("SELECT `team`.`ID` as `teamID`, `group`.`ID` as `groupID`, IFNULL(`team`.`contestID`, `group`.`contestID`) as `contestID`, `group`.`isPublic`, `group`.`name`, `team`.`nbMinutes`, `contest`.`bonusScore`, `contest`.`allowTeamsOfTwo`, `contest`.`askParticipationCode`, `contest`.`newInterface`, `contest`.`customIntro`, `contest`.`fullFeedback`, `contest`.`nextQuestionAuto`, `contest`.`nbUnlockedTasksInitial`, `contest`.`subsetsSize`, IFNULL(subContest.folder, `contest`.`folder`) as `folder`, `contest`.`name` as `contestName`, `contest`.`open`, `contest`.`showSolutions`, `contest`.`allowPauses`, `contest`.`visibility`, `group`.`schoolID`, `team`.`endTime` FROM `team` JOIN `group` ON (`team`.`groupID` = `group`.`ID`) JOIN `contest` ON (`group`.`contestID` = `contest`.`ID`) LEFT JOIN `contest` subContest ON subContest.ID = team.contestID WHERE `team`.`password` = ?");
+   $stmt = $db->prepare("SELECT `team`.`ID` as `teamID`, `group`.`ID` as `groupID`, IFNULL(`team`.`contestID`, `group`.`contestID`) as `contestID`, `group`.`isPublic`, `group`.`name`, `team`.`nbMinutes`, `contest`.`bonusScore`, `contest`.`allowTeamsOfTwo`, `contest`.`groupsExpirationMinutes`, `contest`.`askParticipationCode`, `contest`.`newInterface`, `contest`.`customIntro`, `contest`.`fullFeedback`, `contest`.`showTotalScore`, `contest`.`nextQuestionAuto`, `contest`.`nbUnlockedTasksInitial`, `contest`.`subsetsSize`, IFNULL(subContest.folder, `contest`.`folder`) as `folder`, `contest`.`name` as `contestName`, `contest`.`open`, `contest`.`showSolutions`, `contest`.`allowPauses`, `contest`.`visibility`, `contest`.`headerImageURL`, `contest`.`headerHTML`, `contest`.`logActivity`, `group`.`schoolID`, `team`.`endTime` FROM `team` JOIN `group` ON (`team`.`groupID` = `group`.`ID`) JOIN `contest` ON (`group`.`contestID` = `contest`.`ID`) LEFT JOIN `contest` subContest ON subContest.ID = team.contestID WHERE `team`.`password` = ?");
    $stmt->execute(array($password));
    $row = $stmt->fetchObject();
    if (!$row) {
@@ -132,13 +137,18 @@ function commonLoginTeam($db, $password) {
       "contestVisibility" => $_SESSION["contestVisibility"],
       "bonusScore" => $_SESSION["bonusScore"],
       "allowTeamsOfTwo" => $_SESSION["allowTeamsOfTwo"],
+      "groupsExpirationMinutes" => $_SESSION["groupsExpirationMinutes"],
       "askParticipationCode" => $_SESSION["askParticipationCode"],
       "newInterface" => $_SESSION["newInterface"],
       "nextQuestionAuto" => $_SESSION["nextQuestionAuto"],
       "customIntro" => $_SESSION["customIntro"],
       "fullFeedback" => $_SESSION["fullFeedback"],
+      "showTotalScore" => $_SESSION["showTotalScore"],
       "nbUnlockedTasksInitial" => $_SESSION["nbUnlockedTasksInitial"],
       "subsetsSize" => $_SESSION["subsetsSize"],
+      "headerImageURL" => $_SESSION["headerImageURL"],
+      "headerHTML" => $_SESSION["headerHTML"],
+      "logActivity" => $_SESSION["logActivity"]
       );
 }
 

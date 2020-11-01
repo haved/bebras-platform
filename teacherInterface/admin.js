@@ -4,6 +4,7 @@
 
 var loggedUser;
 var contests;
+var contestCategories;
 var questions;
 var questionsKeysToIds;
 var schools;
@@ -79,6 +80,16 @@ function localDateToUtc(cellValue, options, rowOject) {
    var d = toDate(cellValue, "/", false, true);
    var res = d.toISOString().slice(0,16).split("T").join(" ");
    return res;
+}
+
+function checkTaskPath(path) {
+   if(!path) { return; }
+   if(path.indexOf('\\') != -1) {
+      console.log("Warning : task path contains a \\. That might cause issues in loading the task. (Path : `" + path + "`)");
+   }
+   if(!path.match(/index.*\.html/)) {
+      console.log("Warning : task path doesn't seem to contain any index(_lang).html. That might cause issues in loading the task. (Path : `" + path + "`)");
+   }
 }
 
 function isAdmin() {
@@ -422,7 +433,7 @@ function initModels(isLogged) {
       user_edit: {
          tableName: "user",
          fields: {
-            gender: {label: t("user_gender_label"), editable: true, edittype: "select", width: 20, editoptions:{ value:{"F": "Mme.", "M": "M."}}, required:true},
+            gender: {label: t("user_gender_label"), editable: true, edittype: "select", width: 20, editoptions:{ value:{"F": t("user_gender_female"), "M": t("user_gender_male")}}, required:true},
             lastName: {label: t("user_lastName_label"), editable: true, edittype: "text", width: 90, required: true},
             firstName: {label: t("user_firstName_label"), editable: true, edittype: "text", width: 90, required: true},
             officialEmail: {label: t("user_officialEmail_label"), editable: true, edittype: officialEmailEditType, width: 90, required: true},
@@ -559,6 +570,13 @@ function initModels(isLogged) {
                stype: "select", searchoptions: searchYesNo,
                width: 100
             },
+            showTotalScore: {
+               label: t("contest_showTotalScore_label"),
+               editable: true,
+               edittype: "select", editoptions: editYesNo,
+               stype: "select", searchoptions: searchYesNo,
+               width: 100
+            },
             nextQuestionAuto: {
                label: t("contest_nextQuestionAuto_label"),
                editable: true,
@@ -597,6 +615,13 @@ function initModels(isLogged) {
                stype: "select", searchoptions: searchYesNo,
                width: 100
             },
+            askPhoneNumber: {
+               label: t("contest_askPhoneNumber_label"),
+               editable: true,
+               edittype: "select", editoptions: editYesNo,
+               stype: "select", searchoptions: searchYesNo,
+               width: 100
+            },
             askGenre: {
                label: t("contest_askGenre_label"),
                editable: true,
@@ -604,6 +629,15 @@ function initModels(isLogged) {
                stype: "select", searchoptions: searchYesNo,
                width: 100
             },
+            headerImageURL: {label: t("contest_headerImageURL_label"), editable: true, edittype: "text"},
+            headerHTML: {label: t("contest_headerHTML_label"), editable: true, edittype: "text"},
+            logActivity: {
+               label: t("contest_logActivity_label"),
+               editable: true,
+               edittype: "select", editoptions: editYesNo,
+               stype: "select", searchoptions: searchYesNo,
+               width: 100
+            }
          }
       },
       question: {
@@ -871,7 +905,9 @@ function loadListContests() {
 function loadListQuestions() {
    loadGrid("question", "key", 20, [20, 50, 200], function(id) {
       selectedQuestionID = id;
-      var url = "bebras-tasks/" + questions[id].path;
+      var path = questions[id].path;
+      checkTaskPath(path);
+      var url = "bebras-tasks/" + path;
       $("#preview_question").attr("src", url);
    }, true);
 }
@@ -1236,13 +1272,7 @@ function getItemNames(items, withUnselect) {
       toSort.push({ID : itemID, name: items[itemID].name});
    }
    toSort.sort(function(itemA, itemB) {
-      if (itemA.name < itemB.name) {
-         return -1;
-      }
-      if (itemA.name === itemB.name) {
-         return 0;
-      }
-      return 1;
+      return itemA.name.localeCompare(itemB.name);
    });
    for (var iItem = 0;iItem < toSort.length; iItem++) {
       var item = toSort[iItem];
@@ -1254,9 +1284,43 @@ function getItemNames(items, withUnselect) {
    return itemNames;
 }
 
+function loadContestCategories(contests) {
+   var categoryToID = {};
+   contestCategories = [];
+   var categoryID = 0;
+   for (var contestID in contests) {
+      var contest = contests[contestID];
+      if (contestHidden(contest)) {
+         continue;
+      }
+      var category = contest.category;
+      if (category == "") {
+         category = "-----"; // TODO: translate
+         contest.category = category;
+      }
+      if (categoryToID[category] == undefined) {
+         categoryToID[category] = categoryID;
+         contestCategories[categoryID] = category;
+         categoryID++;
+      }
+   }
+   contestCategories.sort(function(contestA, contestB) {
+      return contestA.localeCompare(contestB);
+   });
+   for (var categoryID = 0; categoryID < contestCategories.length; categoryID++) {
+      var category = contestCategories[categoryID];
+      categoryToID[category] = categoryID;
+   }
+   for (var contestID in contests) {
+      var contest = contests[contestID];
+      contest["categoryID"] = categoryToID[contest.category];
+   }
+}
+
 function loadContests() {
    return loadData("contest", function(items) {
       contests = items;
+      loadContestCategories(contests);
       if (!window.config.allowCertificates) {
          $('#buttonPrintCertificates_group').hide();
          $('#buttonPrintCertificates_team').hide();
@@ -1294,8 +1358,7 @@ function loadContests() {
       } else {
          $('#school_print_certificates_contests').html(contestList);
       }
-   }
-   );
+   });
 }
 
 function loadQuestions() {
@@ -1440,6 +1503,9 @@ function groupFormShowContestDetails(contestID) {
 }
 
 function groupFormHandleContestChange() {
+   $("#group_contestCategoryID").change(function() {
+      updateContestOptions();
+   });
    $("#group_contestID").change(function() {
       var contestID = $("#group_contestID").val();
       groupFormShowContestDetails(contestID);
@@ -1456,6 +1522,7 @@ function newGroup() {
       return;
    }
    newForm("group", t("create_group"), t("create_group_comment"));
+   updateContestOptions();
    groupFormHandleContestChange();
 }
 
@@ -1660,6 +1727,7 @@ Generator.prototype.doTask = function () {
    var taskUrl = self.questionsUrl[currentTaskIndex];
    var taskKey = self.questionsKey[currentTaskIndex];
    generating = true;
+   checkTaskPath(taskUrl);
    $('#preview_question').attr("src", "bebras-tasks/" + taskUrl);
    $('#preview_question').on('load', onQuestionLoaded);
    function onQuestionLoaded () {
@@ -1683,6 +1751,7 @@ Generator.prototype.upload = function() {
       contestID: this.contestID,
       contestFolder: this.contestFolder,
       fullFeedback: this.contest.fullFeedback,
+      showTotalScore: this.contest.showTotalScore,
       status: this.contest.status,
       tasks: JSON.stringify(this.tasks)
    };
@@ -1803,6 +1872,35 @@ function getContestFromID(ID) {
    return null;
 }
 
+function contestHidden(contest, group) {
+   return ((contest.visibility == 'Hidden') ||
+           ((contest.parentContestID != "0") && (contest.parentContestID != null) && ((group == null) || (group.contestID != contest.ID))));
+}
+
+function updateContestOptions(group) {
+   var categoryID = parseInt($("#group_contestCategoryID").val());
+   var listContests = [];
+   for (var iContest in contests) {
+      var contest = contests[iContest];
+      if (contestHidden(contest, group)) {
+         continue;
+      }
+      if (contest.categoryID != categoryID) {
+         continue;
+      }
+      listContests.push(contest);
+   }
+   listContests.sort(function(c1, c2) {
+      return c1.name.localeCompare(c2.name);
+   });
+   var options = "";
+   for (iContest in listContests) {
+      var contest = listContests[iContest];
+      options += "<option value='" + contest.ID + "'>" + contest.name + "</option>";
+   }
+   $("#group_contestID").html(options);
+}
+
 function newForm(modelName, title, message, item) {
    var js = "";
    var html = "<h2>" + title + "</h2>" + message +
@@ -1831,6 +1929,13 @@ function newForm(modelName, title, message, item) {
       } else if (field.edittype === "password") {
          html += "<input type='password'  style='width:350px' id='" + fieldId + "' "+requiredString+"/>";
       } else if (field.edittype === "select") {
+         if (fieldName == "contestID") {
+            html += t("content_type") + " <select id='group_contestCategoryID'>";
+            for (var categoryID = 0; categoryID < contestCategories.length; categoryID++) {
+               html += "<option value='" + categoryID + "'>"  + contestCategories[categoryID] + "</option>";
+            }
+            html += "</select><br/><br/>";
+         }
          html += "<select id='" + fieldId + "'>";
          html += "<option value='0'>" + t("select") + "</option>";
          var optionValue, optionName;
@@ -1842,16 +1947,8 @@ function newForm(modelName, title, message, item) {
             var optionsList = field.editoptions.value.split(";");
             for (var iOption = 0; iOption < optionsList.length; iOption++)  {
                var optionParts = optionsList[iOption].split(":");
-               if (fieldName == "contestID") {                  
-                  var contest = getContestFromID(optionParts[0]);
-                  if (contest) {
-                     if (contest.visibility == 'Hidden') {
-                        continue;
-                     }
-                     if ((contest.parentContestID != "0") && (contest.parentContestID != null) && ((item == null) || (item.contestID != contest.ID))) {
-                        continue;
-                     }
-                  }
+               if (fieldName == "contestID") { 
+                  continue;
                }
                optionValue = optionParts[0];
                optionName = optionParts[1];
@@ -1879,7 +1976,7 @@ function newForm(modelName, title, message, item) {
          html += "<br/><input type='checkbox' id='" + fieldId + "_none'>" + t("user_no_official_email");
       } else if (field.edittype === "datetime") {
          html += "<input id='" + fieldId + "_date' type='text' "+requiredString+"/> ";
-         html += " à ";
+         html += " " + t("at_time") + " ";
          html += getSelectHours(fieldId) + ":" + getSelectMinutes(fieldId);
          html += "<br/>" + t("expectedStartTime_timeZone") + "<b>" + jstz.determine().name() + "</b>";
          js += "$('#" + fieldId + "_date').datepicker({ dateFormat: 'dd/mm/yy' });";
@@ -1928,7 +2025,7 @@ function editGroupDetails(group) {
    groupFormShowContestDetails(group.contestID);
    $("#group_minCategory").val(group.minCategory);
    $("#group_maxCategory").val(group.maxCategory);
-   $("#group_language").val(group.language   );
+   $("#group_language").val(group.language);
 }
 
 function editGroup() {
@@ -2043,10 +2140,16 @@ function getDateFromSQL(dateSQL) {
 
 function editForm(modelName, title, item) {
    newForm(modelName, title, "", item);
+   updateContestOptions(item);
    $("#" + modelName + "_ID").val(item.ID);
    var fields = models[modelName].fields;
    for (var fieldName in fields) {
       var field = fields[fieldName];
+      if (modelName === "group" && fieldName === "contestID") {
+         var contestID = item[fieldName];
+         $("#group_contestCategoryID").val(contests[contestID].categoryID);
+         updateContestOptions(item);
+      }
       if (field.edittype !== "datetime") {
          $("#" + modelName + "_" + fieldName).val(item[fieldName]);
       } else {

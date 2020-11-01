@@ -48,6 +48,10 @@ function sendValidationEmail($emailType, $sEmail, $sSalt) {
 }
 
 function sendValidationEmails($record) {
+   if(!$record["officialEmail"]) {
+      // Only validate official email addresses
+      return ['success' => true];
+   }
    $code = md5($record["salt"]."5263610");
    $params = array('code' => $code, 'email' => $record["officialEmail"], 'salt' => $record["salt"]);
    return sendValidationEmail("acEmail", $record["officialEmail"], $record["salt"]);
@@ -149,7 +153,7 @@ function checkRequestGroup($db, &$request, &$record, $operation, &$roles) {
    }   
    // This can't be done through a standard filter yet
    if (($operation === "update") && groupContestChanged($db, $record["ID"], $record["contestID"])) {
-      $message = trasnalte("groups_cant_change_contest_of_started_group");
+      $message = translate("groups_cant_change_contest_of_started_group");
       error_log($message);
       echo json_encode(array("success" => false, "message" => $message));      
       return false;
@@ -666,8 +670,8 @@ if (!isset($_REQUEST["tableName"])) {
 $modelName = $_REQUEST["tableName"];
 if (!isset($_SESSION["userID"]) && !(($modelName === "user") && ($_REQUEST["oper"] === "insert"))) {
    error_log("Invalid request for non-connected user. session : ".json_encode($_SESSION)." request : ".json_encode($_REQUEST));
-   http_response_code(500);
-   header("Status: 500 Server Error Invalid Request");
+   http_response_code(403);
+   header("Status: 403 Forbidden");
    echo translate("session_expired");
    unset($db);
    exit;

@@ -67,6 +67,8 @@ $config->contestInterface->sAssetsStaticPathNoS3 = 'http://concours.castor-infor
 $config->contestInterface->sessionLength = 3600;
 $config->contestInterface->browserCheck = 'bebras-platform';
 $config->contestInterface->logActivity = false;
+$config->contestInterface->httpsTestUrl = null;
+$config->contestInterface->redirectToHTTPS = false;
 
 $config->teacherInterface = (object) array();
 $config->teacherInterface->sHotlineNumber = '';
@@ -80,6 +82,7 @@ $config->teacherInterface->generationMode = 'local';
 $config->teacherInterface->sAbsoluteStaticPathOldIE = 'http://coordinateur.castor-informatique.fr/';
 $config->teacherInterface->sContestGenerationPath = '/../contestInterface/contests/'; // *MUST* be relative!
 $config->teacherInterface->forceOfficialEmailDomain = false;
+$config->teacherInterface->autoValidateOfficialEmail = false;
 $config->teacherInterface->useAlgoreaCodes = false; // change if your award is an acess code for another contest
 // Point teacherInterface->baseUrl to an URL serving the teacherInterface directory.
 $config->teacherInterface->baseUrl = 'http://coordinateur.castor-informatique.fr';
@@ -103,6 +106,7 @@ $config->customStringsName = null; // see README
 $config->imagesURLReplacements = array();
 $config->imagesURLReplacementsNonStatic = array();
 $config->upgradeToHTTPS = false;
+$config->redirectToHTTPSIfError = false;
 
 // team_question transfer script
 $config->transferTeamQuestion = (object) array(

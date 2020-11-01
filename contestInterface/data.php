@@ -116,6 +116,8 @@ function handleCreateTeam($db) {
    $contestants = $_POST["contestants"];
    $stmt = $db->prepare("UPDATE `group` SET `startTime` = UTC_TIMESTAMP() WHERE `group`.`ID` = ? AND `startTime` IS NULL");
    $stmt->execute(array($groupID));
+   $stmt = $db->prepare("UPDATE `group` gc JOIN `group` gp ON gc.parentGroupID = gp.ID AND gc.ID = ? SET gp.`startTime` = UTC_TIMESTAMP() WHERE gp.`startTime` IS NULL");
+   $stmt->execute(array($groupID));
    $stmt = $db->prepare("UPDATE `group` SET `nbTeamsEffective` = `nbTeamsEffective` + 1, `nbStudentsEffective` = `nbStudentsEffective` + ? WHERE `ID` = ?");
    $stmt->execute(array(count($contestants), $groupID));
 
@@ -126,8 +128,8 @@ function handleCreateTeam($db) {
    $_SESSION["teamPassword"] = $password;
    foreach ($contestants as $contestant) {
       if (isset($contestant["registrationCode"])) {
-         $stmt = $db->prepare("INSERT INTO `contestant` (`ID`, `lastName`, `firstName`, `genre`, `grade`, `studentId`, `teamID`, `cached_schoolID`, `saniValid`, `email`, `zipCode`, `registrationID`)
-         SELECT :contestantID, `lastName`, `firstName`, `genre`, `grade`, `studentId`, :teamID, `schoolID`, 1, `email`, `zipCode`, `ID`
+         $stmt = $db->prepare("INSERT INTO `contestant` (`ID`, `lastName`, `firstName`, `genre`, `grade`, `studentId`, `phoneNumber`, `teamID`, `cached_schoolID`, `saniValid`, `email`, `zipCode`, `registrationID`)
+         SELECT :contestantID, `lastName`, `firstName`, `genre`, `grade`, `studentId`, `phoneNumber`, :teamID, `schoolID`, 1, `email`, `zipCode`, `ID`
          FROM `algorea_registration` WHERE `algorea_registration`.`code` = :code");
          $stmt->execute(array(
             "contestantID" => getRandomID(),
@@ -144,12 +146,15 @@ function handleCreateTeam($db) {
          if (!isset($contestant["studentId"])) {
             $contestant["studentId"] = "";
          }
+         if (!isset($contestant["phoneNumber"])) {
+            $contestant["phoneNumber"] = "";
+         }
          list($contestant["firstName"], $contestant["lastName"], $saniValid, $trash) =
             DataSanitizer::formatUserNames($contestant["firstName"], $contestant["lastName"]);
          $stmt = $db->prepare("
-            INSERT INTO `contestant` (`ID`, `lastName`, `firstName`, `genre`, `grade`, `studentId`, `teamID`, `cached_schoolID`, `saniValid`, `email`, `zipCode`)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-         $stmt->execute(array(getRandomID(), $contestant["lastName"], $contestant["firstName"], $contestant["genre"], $contestant["grade"], $contestant["studentId"], $teamID, $_SESSION["schoolID"], $saniValid, $contestant["email"], $contestant["zipCode"]));
+            INSERT INTO `contestant` (`ID`, `lastName`, `firstName`, `genre`, `grade`, `studentId`, `phoneNumber`, `teamID`, `cached_schoolID`, `saniValid`, `email`, `zipCode`)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+         $stmt->execute(array(getRandomID(), $contestant["lastName"], $contestant["firstName"], $contestant["genre"], $contestant["grade"], $contestant["studentId"], $contestant["phoneNumber"], $teamID, $_SESSION["schoolID"], $saniValid, $contestant["email"], $contestant["zipCode"]));
       }
    }
    addBackendHint(sprintf("ClientIP.createTeam:%s", $_SESSION['isPublic'] ? 'public' : 'private'));
@@ -173,6 +178,7 @@ function updateDynamoDBStartTime($db, $teamID) {
 }
 
 function handleStartTimer($db) {
+   addBackendHint("ClientIP.loadOther:data");
    $teamID = $_SESSION["teamID"];
    $stmt = $db->prepare("UPDATE `team` SET `startTime` = UTC_TIMESTAMP() WHERE `ID` = :teamID AND `startTime` IS NULL");
    $stmt->execute(array("teamID" => $teamID));
@@ -295,10 +301,12 @@ function handleLoadSession() {
       "nbMinutes" => $_SESSION["nbMinutes"],
       "bonusScore" => $_SESSION["bonusScore"],
       "allowTeamsOfTwo" => $_SESSION["allowTeamsOfTwo"],
+      "groupsExpirationMinutes" => $_SESSION["groupsExpirationMinutes"],
       "askParticipationCode" => $_SESSION["askParticipationCode"],
       "newInterface" => $_SESSION["newInterface"],
       "customIntro" => $_SESSION["customIntro"],
       "fullFeedback" => $_SESSION["fullFeedback"],
+      "showTotalScore" => $_SESSION["showTotalScore"],
       "nbUnlockedTasksInitial" => $_SESSION["nbUnlockedTasksInitial"],
       "subsetsSize" => $_SESSION["subsetsSize"],
       "contestID" => $_SESSION["contestID"],
@@ -308,6 +316,9 @@ function handleLoadSession() {
       "contestOpen" => $_SESSION["contestOpen"],
       "contestShowSolutions" => $_SESSION["contestShowSolutions"],
       "contestVisibility" => $_SESSION["contestVisibility"],
+      "headerImageURL" => $_SESSION["headerImageURL"],
+      "headerHTML" => $_SESSION["headerHTML"],
+      "logActivity" => $_SESSION["logActivity"],
       "SID" => $sid));
 }
 
@@ -362,7 +373,7 @@ function handleCheckPassword($db) {
 }
 
 function getRegistrationData($db, $code) {
-   $query = "SELECT `algorea_registration`.`ID`, `code`, `category` as `qualifiedCategory`, `validatedCategory`, `firstName`, `lastName`, `genre`, `grade`, `studentID`, `email`, `zipCode`, ".
+   $query = "SELECT `algorea_registration`.`ID`, `code`, `category` as `qualifiedCategory`, `validatedCategory`, `firstName`, `lastName`, `genre`, `grade`, `studentID`, `phoneNumber`, `email`, `zipCode`, ".
       "IFNULL(`algorea_registration`.`schoolID`, 0) as `schoolID`, IFNULL(`algorea_registration`.  `userID`, 0) as `userID`, IFNULL(`school_user`.`allowContestAtHome`, 1) as `allowContestAtHome`,
       `round` ".
       "FROM `algorea_registration` ".
@@ -436,7 +447,7 @@ function handleGroupFromRegistrationCode($db, $code) {
    }
    $isOfficialContest = false;
    if (isset($_POST["startOfficial"])) {
-      $contestID = "288404405033703401"; // hard-coded real contest
+      $contestID = "220445039788370340"; // hard-coded real contest
       if (isset($config->currentContestID)) {
          $contestID = $config->currentContestID;
       }
@@ -462,7 +473,7 @@ function handleCheckGroupPassword($db, $password, $getTeams, $extraMessage = "",
    global $allCategories, $config;
    
    // Find a group whose code matches the given password.
-   $query = "SELECT `group`.`ID`, `group`.`name`, `group`.`bRecovered`, `group`.`contestID`, `group`.`isPublic`, `group`.`schoolID`, `group`.`startTime`, TIMESTAMPDIFF(MINUTE, `group`.`startTime`, UTC_TIMESTAMP()) as `nbMinutesElapsed`,  `contest`.`nbMinutes`, `contest`.`bonusScore`, `contest`.`allowTeamsOfTwo`, `contest`.`askParticipationCode`, `contest`.`newInterface`, `contest`.`customIntro`, `contest`.`fullFeedback`, `contest`.`nextQuestionAuto`, `contest`.`folder`, `contest`.`nbUnlockedTasksInitial`, `contest`.`subsetsSize`, `contest`.`open`, `contest`.`showSolutions`, `contest`.`visibility`, `contest`.`askEmail`, `contest`.`askZip`, `contest`.`askGenre`, `contest`.`askGrade`, `contest`.`askStudentId`, `contest`.`name` as `contestName`, `contest`.`allowPauses`, `group`.`isGenerated`, `group`.`language`, `group`.`minCategory`, `group`.`maxCategory` FROM `group` JOIN `contest` ON (`group`.`contestID` = `contest`.`ID`) WHERE `code` = ?";
+   $query = "SELECT `group`.`ID`, `group`.`name`, `group`.`bRecovered`, `group`.`contestID`, `group`.`isPublic`, `group`.`schoolID`, `group`.`startTime`, TIMESTAMPDIFF(MINUTE, `group`.`startTime`, UTC_TIMESTAMP()) as `nbMinutesElapsed`,  `contest`.`nbMinutes`, `contest`.`bonusScore`, `contest`.`allowTeamsOfTwo`, `contest`.`groupsExpirationMinutes`,  `contest`.`askParticipationCode`, `contest`.`newInterface`, `contest`.`customIntro`, `contest`.`fullFeedback`, `contest`.`groupsExpirationMinutes`, `contest`.`showTotalScore`, `contest`.`nextQuestionAuto`, `contest`.`folder`, `contest`.`nbUnlockedTasksInitial`, `contest`.`subsetsSize`, `contest`.`open`, `contest`.`showSolutions`, `contest`.`visibility`, `contest`.`askEmail`, `contest`.`askZip`, `contest`.`askGenre`, `contest`.`askGrade`, `contest`.`askStudentId`, `contest`.`askPhoneNumber`, `contest`.`name` as `contestName`, `contest`.`allowPauses`, `contest`.`headerImageURL`, `contest`.`headerHTML`, `contest`.`logActivity`, `group`.`isGenerated`, `group`.`language`, `group`.`minCategory`, `group`.`maxCategory` FROM `group` JOIN `contest` ON (`group`.`contestID` = `contest`.`ID`) WHERE `code` = ?";
    $stmt = $db->prepare($query);
    $stmt->execute(array($password));
    $row = $stmt->fetchObject();
@@ -510,12 +521,12 @@ function handleCheckGroupPassword($db, $password, $getTeams, $extraMessage = "",
    $_SESSION["language"] = $row->language;
    $_SESSION["minCategory"] = $row->minCategory;
    $_SESSION["maxCategory"] = $row->maxCategory;
-   $_SESSION["groupClosed"] = (($nbMinutesElapsed > 60) && (!$_SESSION["isPublic"]) && (!$_SESSION["isGenerated"]));
+   $_SESSION["groupClosed"] = (($nbMinutesElapsed > intval($row->groupsExpirationMinutes)) && (intval($row->groupsExpirationMinutes) != 0) && (!$_SESSION["isPublic"]) /*&& (!$_SESSION["isGenerated"])*/);
    $_SESSION["registrationData"] = $registrationData;
 
    updateSessionWithContestInfos($row);
    
-   $query = "SELECT contest.ID as contestID, contest.folder, contest.name, contest.language, contest.categoryColor, contest.customIntro, contest.imageURL, contest.description, contest.allowTeamsOfTwo, contest.askParticipationCode ".
+   $query = "SELECT contest.ID as contestID, contest.folder, contest.name, contest.language, contest.categoryColor, contest.customIntro, contest.imageURL, contest.description, contest.allowTeamsOfTwo, contest.groupsExpirationMinutes, contest.askParticipationCode, `contest`.`headerImageURL`, `contest`.`headerHTML`, `contest`.`logActivity` ".
       "FROM contest WHERE parentContestID = :contestID";
    $stmt = $db->prepare($query);
    $stmt->execute(array("contestID" => $row->contestID));
@@ -569,11 +580,13 @@ function handleCheckGroupPassword($db, $password, $getTeams, $extraMessage = "",
       "contestVisibility" => $_SESSION["contestVisibility"],
       "bonusScore" => $_SESSION["bonusScore"],
       "allowTeamsOfTwo" => $_SESSION["allowTeamsOfTwo"],
+      "groupsExpirationMinutes" => $_SESSION["groupsExpirationMinutes"],
       "askParticipationCode" => $_SESSION["askParticipationCode"],
       "newInterface" => $_SESSION["newInterface"],
       "nextQuestionAuto" => $_SESSION["nextQuestionAuto"],
       "customIntro" => $_SESSION["customIntro"],
       "fullFeedback" => $_SESSION["fullFeedback"],
+      "showTotalScore" => $_SESSION["showTotalScore"],
       "nbUnlockedTasksInitial" => $_SESSION["nbUnlockedTasksInitial"],
       "subsetsSize" => $_SESSION["subsetsSize"],
       "name" => $_SESSION["name"],
@@ -585,12 +598,16 @@ function handleCheckGroupPassword($db, $password, $getTeams, $extraMessage = "",
       "askGenre" => !!intval($row->askGenre),
       "askGrade" => !!intval($row->askGrade),
       "askStudentId" => !!intval($row->askStudentId),
+      "askPhoneNumber" => !!intval($row->askPhoneNumber),
       "extraMessage" => $extraMessage,
       "isPublic" => $isPublic,
       "isGenerated" => $isGenerated,
       "minCategory" => $_SESSION["minCategory"],
       "maxCategory" => $_SESSION["maxCategory"],
       "language" => $_SESSION["language"],
+      "headerImageURL" => $_SESSION["headerImageURL"],
+      "headerHTML" => $_SESSION["headerHTML"],
+      "logActivity" => $_SESSION["logActivity"],
       "childrenContests" => $childrenContests,
       "registrationData" => $registrationData,
       "isOfficialContest" => $isOfficialContest,
@@ -608,6 +625,7 @@ function handleCheckTeamPassword($db, $password) {
 }
 
 function handleCheckRegistrationCode($db) {
+   addBackendHint("ClientIP.loadOther:data");
    $code = $_POST["code"];
    $registrationData = getRegistrationData($db, $code);
    if (!$registrationData) {
@@ -672,6 +690,7 @@ function getRemainingSeconds($db, $teamID, $restartIfEnded = false) {
 
 function handleGetRemainingSeconds($db) {
    if (!isset($_SESSION["nbMinutes"]) || !isset($_SESSION['teamID'])) {
+      addBackendHint("ClientIP.getRemainingTime:fail");
       exitWithJson((object)array("success" => false));
    }
    $teamID = $_SESSION['teamID'];
@@ -682,6 +701,7 @@ function handleGetRemainingSeconds($db) {
 }
 
 function handleRecoverGroup($db) {
+   addBackendHint("ClientIP.loadOther:data");
    if (!isset($_POST['groupCode']) || !isset($_POST['groupPass'])) {
       exitWithJson((object)array("success" => false, "message" => 'Code ou mot de passe manquant'));
    }
@@ -722,6 +742,7 @@ function handleRecoverGroup($db) {
 }
 
 function handleGetConfig() {
+   // Deprecated, to remove after 08/12/2019
    global $config;
    $clientConfig = array(
       "imagesURLReplacements" => $config->imagesURLReplacements,
@@ -733,6 +754,7 @@ function handleGetConfig() {
 }
 
 if (!isset($_POST["action"])) {
+   addFailureBackendHint("ClientIP.loadOther:fail");
    exitWithJsonFailure("Aucune action fournie");
 }
 

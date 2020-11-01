@@ -79,38 +79,38 @@ echo "<p>".translate("results_students_may_appear_twice")."</p>";
 
 echo "<p><b>Classement Algoréa :</b> un classement unique par niveau scolaire est calculé pour chaque participant et mis à jour après chaque tour. Dans chaque niveau scolaire, sont classés en tête les participants ayant obtenu des points dans la catégorie verte par ordre de leur score, puis ceux ayant des points dans la catégorie orange, puis la jaune, puis la blanche.</p>";
 
-$mainContestID = "822122511136074554";
-$allContestIDs = ["822122511136074554","337033997884044050", "288404405033703399", "288404405033703401"];
-
-$query = "SELECT ID, name FROM contest WHERE ID IN (".join(",", $allContestIDs).")";
+$query = "SELECT ID, name, orderResults FROM contest WHERE orderResults IS NOT NULL ORDER BY orderResults ASC";
 $stmt = $db->prepare($query);
 $stmt->execute(array("userID" => $_SESSION['userID']));
 echo "<div style='border:solid black 1px;padding:5px;width:400px'>";
 echo "<p>".translate("results_show_only_participants_of")."</p>";
 echo "<form name='filter' method='post'>";
+$mainContestID = null;
 $data = array();
-while ($row = $stmt->fetchObject()) {
-   $data[$row->ID] = $row->name;
-}
 $contestIDs = array();
-foreach ($allContestIDs as $contestID) {
-   if (isset($data[$contestID])) {
-      $checked = "";
-      if (isset($_POST["contest_".$contestID])) {
-         $checked = "checked";
-         $contestIDs[] = $contestID;
-      }
-      echo "<input type='checkbox' name='contest_".$contestID."' ".$checked.">".$data[$contestID]."</input><br/>";
+$allContestIDs = array();
+while ($row = $stmt->fetchObject()) {
+   $contestID = $row->ID;
+   if ($mainContestID === null) {
+      $mainContestID = $contestID;
    }
-}
-if (count($contestIDs) == 0) {
-   $contestIDs = $allContestIDs;
+   $data[$contestID] = $row->name;
+   $checked = "";
+   if (isset($_POST["contest_".$contestID])) {
+      $checked = "checked";
+      $contestIDs[] = $contestID;
+   }
+   $allContestIDs[] = $contestID;
+   echo "<input type='checkbox' name='contest_".$contestID."' ".$checked.">".$data[$contestID]."</input><br/>";
 }
 echo "<input type='submit' value='".translate("filter")."' />";
 echo "</form></div>";
 
+if (count($contestIDs) == 0) {
+   $contestIDs = $allContestIDs;
+}
 
-$categories = ["blanche", "jaune", "orange", "verte", "bleue"];
+$categories = ["blanche", "jaune", "orange", "verte"];
 
 
 $query = "
@@ -137,8 +137,8 @@ $query = "
       algorea_registration.round,
       algorea_registration.algoreaRank,
       algorea_registration.algoreaSchoolRank,
-      algorea_registration.scoreDemi2018,
-      algorea_registration.rankDemi2018,
+      algorea_registration.scoreDemi2020,
+      algorea_registration.rankDemi2020,
       algorea_registration.qualifiedFinal,
       `group`.contestID,
       contest.parentContestID,
@@ -182,8 +182,8 @@ $query = "
       algorea_registration.round,
       algorea_registration.algoreaRank,
       algorea_registration.algoreaSchoolRank,
-      algorea_registration.scoreDemi2018,
-      algorea_registration.rankDemi2018,
+      algorea_registration.scoreDemi2020,
+      algorea_registration.rankDemi2020,
       algorea_registration.qualifiedFinal,
       `group`.contestID,
       contest.parentContestID,
@@ -252,8 +252,8 @@ while ($row = $stmt->fetchObject()) {
              "grade" => $row->regGrade,
              "code" => $row->code,
              "round" => $row->round,
-             "scoreDemi2018" => $row->scoreDemi2018,
-             "rankDemi2018" => $row->rankDemi2018,
+             "scoreDemi2020" => $row->scoreDemi2020,
+             "rankDemi2020" => $row->rankDemi2020,
              "qualifiedFinal" => $row->qualifiedFinal,
              "qualifiedCategory" => $row->category,
              "validatedCategory" => $row->validatedCategory,
@@ -269,8 +269,8 @@ while ($row = $stmt->fetchObject()) {
              "grade" => $row->grade,
              "code" => "-",
              "round" => $row->round,
-             "scoreDemi2018" => $row->scoreDemi2018,
-             "rankDemi2018" => $row->rankDemi2018,
+             "scoreDemi2020" => $row->scoreDemi2020,
+             "rankDemi2020" => $row->rankDemi2020,
              "qualifiedFinal" => $row->qualifiedFinal,
              "qualifiedCategory" => "-",
              "validatedCategory" => "-",
@@ -323,10 +323,14 @@ foreach ($schools as $schoolID => $school) {
          continue;
       }
       $categoryContests = $contests[$mainContestKey];
-      echo "<td colspan='".count($categoryContests)."'";
-      if (count($categoryContests) == 1) {
-         echo " rowspan=2 ";
+      $colSpan = count($categoryContests);
+      $rowSpan = 1;
+      if (isset($categoryContests[""]) AND count($categoryContests) == 1) {
+         $rowSpan = 2;
+      } else if (isset($categoryContests[""])) {
+         $colSpan -= 1;
       }
+      echo "<td colspan='".$colSpan."'"." rowSpan='".$rowSpan."' ";
       echo ">".$mainContestsNames[$mainContestKey]."</td>";
    }
    echo "<td rowspan=2 style='width:100px'>".translate("results_ranking_national")."</td>";
@@ -342,7 +346,7 @@ foreach ($schools as $schoolID => $school) {
          if (!isset($categoryContests[$category])) {
             continue;
          }
-         if (count($categoryContests) > 1) {
+         if (!(isset($categoryContests[""]) AND count($categoryContests) == 1)) {
             echo "<td>".$category."</td>";
          }
       }
@@ -400,27 +404,27 @@ foreach ($schools as $schoolID => $school) {
       } echo "</td>";
       echo "<td>";
       if ($contestant["infos"]["round"] == "1") {
-         echo "qualifié";
-         /*
-         $score = $contestant["infos"]["scoreDemi2019"];
+         $score = $contestant["infos"]["scoreDemi2020"];
          if (($score != null) && ($score > 0)) {
             echo $score;
             echo "<br/>";
             $qualifiedFinal = $contestant["infos"]["qualifiedFinal"];
             echo "<span class='rank'>";
             if ($qualifiedFinal == "0") {
-               echo $contestant["infos"]["rankDemi2019"]."e des ".translate("grade_short_".$contestant["infos"]["grade"])."<br/>".
-               translate("results_not_qualified_to_finals");
+               echo /*$contestant["infos"]["rankDemi2020"]."e des ".translate("grade_short_".$contestant["infos"]["grade"])."<br/>".*/
+               translate("results_not_qualified_to_finals").
+               "<br/>Classement en attente.";
             } else if ($qualifiedFinal == "1") {
                echo translate("results_qualified_to_finals");
-            } else {
+            } else if ($qualifiedFinal == "2") {
                echo translate("results_qualified_to_online_finals");
+            } else {
+               echo "Hors classement";
             }
             echo "</span>";
          } else {
             echo "-";
          }
-         */
       } else {
          echo "-";
       }

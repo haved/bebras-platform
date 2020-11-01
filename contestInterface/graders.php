@@ -23,7 +23,7 @@ if (!isset($_SESSION["teamID"])) {
 }
 
 $teamID = $_SESSION["teamID"];
-$query = "SELECT `contest`.`ID` as `ID`, IFNULL(`subContest`.`folder`,`contest`.`folder`) as `folder`, `contest`.`status` as `status`, `contest`.`fullFeedback` as `fullFeedback` FROM `team` JOIN `group` ON (`team`.`groupID` = `group`.`ID`) JOIN `contest` ON (`group`.`contestID` = `contest`.`ID`) LEFT JOIN `contest` `subContest` ON (`team`.`contestID` = `subContest`.`ID`) WHERE `team`.`ID` = ?";
+$query = "SELECT `contest`.`ID` as `ID`, IFNULL(`subContest`.`folder`,`contest`.`folder`) as `folder`, `contest`.`status` as `status`, `contest`.`fullFeedback` as `fullFeedback`, `contest`.`showTotalScore` as `showTotalScore` FROM `team` JOIN `group` ON (`team`.`groupID` = `group`.`ID`) JOIN `contest` ON (`group`.`contestID` = `contest`.`ID`) LEFT JOIN `contest` `subContest` ON (`team`.`contestID` = `subContest`.`ID`) WHERE `team`.`ID` = ?";
 $stmt = $db->prepare($query);
 $stmt->execute(array($teamID));
 if (!($row = $stmt->fetchObject())) {
@@ -86,6 +86,7 @@ if ($config->teacherInterface->generationMode == 'local') {
 
 header("Content-Type: application/json");
 header("Connection: close");
+header('X-Backend-Hints: "ClientIP.loadOther:graders"');
 
 echo json_encode(array(
    'status' => 'success',

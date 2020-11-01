@@ -1992,16 +1992,8 @@ function newForm(modelName, title, message, item) {
       html += '<label><input type="checkbox" id="users_okMail">';
       html += t('user_accept_email')+'</label>';
    }
-<<<<<<< HEAD
-   html += "<input id='buttonValidate_" + modelName + "' type='button' value='" + t('OK') +"' onclick='validateForm(\"" + modelName + "\")' class='btn btn-primary'/> ";
-   html += "<input id='buttonCancel_" + modelName + "' type='button' value='" + t('cancel') + "' onclick='endEditForm(\"" + modelName + "\", 0 , {})' class='btn btn-default'/>";
-||||||| merged common ancestors
-   html += "<input id='buttonValidate_" + modelName + "' type='button' value='OK' onclick='validateForm(\"" + modelName + "\")' class='btn btn-primary'/> ";
-   html += "<input id='buttonCancel_" + modelName + "' type='button' value='Annuler' onclick='endEditForm(\"" + modelName + "\", 0 , {})' class='btn btn-default'/>";
-=======
    html += "<input id='buttonValidate_" + modelName + "' type='button' value='OK' onclick='validateForm(\"" + modelName + "\")' class='btn btn-primary'/> ";
    html += "<input id='buttonCancel_" + modelName + "' type='button' value='" + t("cancel") + "' onclick='endEditForm(\"" + modelName + "\", 0 , {})' class='btn btn-default'/>";
->>>>>>> origin/master
    html += "<div id='edit_form_error' style='color:red'></div>";
    $("#edit_form").html(html);
    eval(js);

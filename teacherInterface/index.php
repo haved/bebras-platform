@@ -270,13 +270,13 @@
    $language = $config->defaultLanguage;
    $countryCode = $config->teacherInterface->countryCode;
    $domainCountryCode = $config->teacherInterface->domainCountryCode;
+   script_tag('/bower_components/jstz/index.js'); // no proper bower packaging, must be updated by hand (in bower.json)
    // JSON3 shim for IE6-9 compatibility.
    script_tag('/bower_components/json3/lib/json3.min.js');
    // jquery 1.9 is required for IE6+ compatibility.
    script_tag('/bower_components/jquery/jquery.min.js');
    // Ajax CORS support for IE9 and lower.
    script_tag('/bower_components/jQuery-ajaxTransport-XDomainRequest/jquery.xdomainrequest.min.js');
-   script_tag('/bower_components/jstz/index.js'); // no proper bower packaging, must be updated by hand (in bower.json)
    script_tag('/bower_components/jquery-ui/jquery-ui.min.js');
    script_tag('/bower_components/i18next/i18next.min.js');
    script_tag('/bower_components/pem-platform/task-pr.js');

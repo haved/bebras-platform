@@ -4,5 +4,6 @@
     "west": "Vestlandet",
     "south": "Sørlandet",
     "trond": "Trøndelag",
-    "north": "Nord-Norge"
+    "north": "Nord-Norge",
+    "ukjent": "Ukjent"
 }

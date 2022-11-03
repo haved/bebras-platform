@@ -239,8 +239,8 @@ function getContestQuestionsColModel() {
             stype: "select", searchoptions: { value:getItemNames(contests, true)},
             width: 300},
          questionID: {label: t("contest_question_questionID_label"),
-            editable: true, edittype: "select", editoptions: { value:getItemNames(questions)},
-            stype: "select", searchoptions: { value:getItemNames(questions, true)},
+            editable: true, edittype: "select", editoptions: { value:getItemKeyNames(questions)},
+            stype: "select", searchoptions: { value:getItemKeyNames(questions, true)},
             width: 300},
          minScore: {label: t("contest_question_minScore_label"), editable: true, edittype: "text", width: 120},
          noAnswerScore: {label: t("contest_question_noAnswerScore_label"), editable: true, edittype: "text", width: 120},
@@ -1304,6 +1304,28 @@ function getItemNames(items, withUnselect) {
    var toSort = [];
    for (var itemID in items) {
       toSort.push({ID : itemID, name: items[itemID].name});
+   }
+   toSort.sort(function(itemA, itemB) {
+      return itemA.name.localeCompare(itemB.name);
+   });
+   for (var iItem = 0;iItem < toSort.length; iItem++) {
+      var item = toSort[iItem];
+      itemNames += item.ID + ":" + item.name;
+      if (iItem < toSort.length - 1) {
+         itemNames += ";";
+      }
+   }
+   return itemNames;
+}
+
+function getItemKeyNames(items, withUnselect) {
+   var itemNames = "";
+   if (withUnselect) {
+      itemNames += "_NOF_:" + t("option_no_filter") + ";";
+   }
+   var toSort = [];
+   for (var itemID in items) {
+      toSort.push({ID : itemID, name: items[itemID].key + " " + items[itemID].name});
    }
    toSort.sort(function(itemA, itemB) {
       return itemA.name.localeCompare(itemB.name);

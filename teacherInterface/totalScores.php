@@ -51,10 +51,17 @@ if ($groupID == null) {
       exit;
    }
 
+   /* This was commented out by David and replaced with the code below
+    * It seems the team "ends" whenever the totalScores page for the contest is requested.
    $query = "UPDATE `team` SET `endTime` = UTC_TIMESTAMP() WHERE `endTime` IS NULL AND TIME_TO_SEC(TIMEDIFF(UTC_TIMESTAMP(), `team`.`startTime`)) > ?";
    $stmt = $db->prepare($query);
    $nbSeconds = intval($row->nbMinutes) * 60;
    $stmt->execute(array($nbSeconds));
+   */
+
+   $query = "UPDATE `team` SET `endTime` = UTC_TIMESTAMP() WHERE `endTime` IS NULL and contestId = ?";
+   $stmt = $db->prepare($query);
+   $stmt->execute(array($contestID));
 
    $query = "UPDATE `team` JOIN ".
       "(SELECT IFNULL(SUM(`team_question`.`score`), 0) + ".($row->bonusScore)." as `teamScore`, ".

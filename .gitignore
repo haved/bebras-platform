@@ -4,6 +4,5 @@
 /teacherInterface/bower_components/
 /teacherInterface/beaver_tasks/
 /logs/
-/config_local.php
 /.composer
 /node_modules/

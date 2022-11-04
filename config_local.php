@@ -7,7 +7,7 @@ $config->db->dynamoSessions = false; // true to use dynamoDB sessions, string to
 $config->db->dynamoDBPrefix = ''; // prefix for sessions, team and team_question
 
 // MySQL
-$config->db->mysql->host = '127.0.0.1';
+$config->db->mysql->host = getenv('BEBRAS_MYSQL_HOST') ?: '127.0.0.1';
 $config->db->mysql->database = 'bebras';
 $config->db->mysql->user = 'bebras';
 $config->db->mysql->password = getenv('BEBRAS_DB_PASSWORD');
@@ -33,13 +33,14 @@ $config->timezone = 'Europe/Oslo';
 $config->defaultLanguage = 'no';
 $config->teacherInterface->countryCode = 'NO';
 
-$baseURL = getenv('BEBRAS_BASE_URL') ?: 'https://olympiade.ii.uib.no/runde1';
+$contestBaseURL = getenv('BEBRAS_CONTEST_BASE_URL') ?: 'https://olympiade.ii.uib.no/runde1/';
+$teacherBaseURL = getenv('BEBRAS_TEACHER_BASE_URL') ?: 'https://olympiade.ii.uib.no/runde1adm/';
 
 // Teacher interface settings
-$config->teacherInterface->sCoordinatorFolder = "$baseURL/teacherInterface/";
-$config->teacherInterface->sAssetsStaticPath = "$baseURL/";
-$config->teacherInterface->sAbsoluteStaticPath = "$baseURL/";
-$config->teacherInterface->sAbsoluteStaticPathOldIE = "$baseURL/";
+$config->teacherInterface->sCoordinatorFolder = "${contestBaseURL}teacherInterface";
+$config->teacherInterface->sAssetsStaticPath = $contestBaseURL;
+$config->teacherInterface->sAbsoluteStaticPath = $contestBaseURL;
+$config->teacherInterface->sAbsoluteStaticPathOldIE = $contestBaseURL;
 $config->teacherInterface->genericPasswordMd5 = '';
 $config->teacherInterface->generationMode = 'local';
 $config->teacherInterface->sContestGenerationPath = '/../contestInterface/contests/'; // *MUST* be relative!
@@ -47,8 +48,8 @@ $config->teacherInterface->forceOfficialEmailDomain = false;
  // indicate the ID of the contest for which password will be automatically generated for teachers
 $config->teacherInterface->teacherPersonalCodeContestID = 0;
 
-$config->contestInterface->sAssetsStaticPathNoS3 = "$baseURL";
-$config->contestInterface->sAbsoluteStaticPathNoS3 = "$baseURL";
+$config->contestInterface->sAssetsStaticPathNoS3 = $contestBaseURL;
+$config->contestInterface->sAbsoluteStaticPathNoS3 = $contestBaseURL;
 
 
 $config->grades = [-1,3,4,5,6,7,8,9,10,11,12,13,-4];
@@ -58,11 +59,11 @@ $config->trainingContestID = '56';
 
 
 // URLs
-$config->teacherInterface->baseUrl = "${baseURL}adm/";
-$config->contestInterface->baseUrl = "$baseURL/";
-$config->certificates->webServiceUrl = "$baseURL/certificates";
-$config->contestPresentationURL =  "$baseURL/";
-$config->contestOfficialURL = "$baseURL/";
+$config->teacherInterface->baseUrl = $teacherBaseURL;
+$config->contestInterface->baseUrl = $contestBaseURL;
+$config->certificates->webServiceUrl = "${contestBaseURL}certificates";
+$config->contestPresentationURL = $contestBaseURL;
+$config->contestOfficialURL = $contestBaseURL;
 $config->contestBackupURL = '';
 $config->useCustomStrings = false; // see README
 

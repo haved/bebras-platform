@@ -213,7 +213,7 @@ function reloginTeam($db, $password, $teamID) {
       exitWithJsonFailure("Groupe invalide");
    }
    if ($row->password !== $password) {
-      exitWithJsonFailure("Mot de passe invalide");
+      exitWithJsonFailure("invalid_password");
    }
    if ($row->status == "Closed" || $row->status == "PreRanking") {
       exitWithJsonFailure("Concours fermé");
